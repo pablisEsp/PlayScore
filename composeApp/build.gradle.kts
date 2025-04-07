@@ -60,6 +60,10 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
+
+            //Koin
+            implementation("io.insert-koin:koin-core:4.0.4")
+            implementation("io.insert-koin:koin-androidx-compose:4.0.4")
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)

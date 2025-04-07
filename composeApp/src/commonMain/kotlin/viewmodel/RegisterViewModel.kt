@@ -1,6 +1,7 @@
 package viewmodel
 
 import androidx.compose.runtime.*
+import androidx.lifecycle.ViewModel
 import data.AuthService
 import data.model.RegisterRequest
 import kotlinx.coroutines.CoroutineScope
@@ -8,8 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class RegisterViewModel(
-    private val authService: AuthService = AuthService()
-) {
+    private val authService: AuthService
+) : ViewModel() {
     var name by mutableStateOf("")
         private set
 

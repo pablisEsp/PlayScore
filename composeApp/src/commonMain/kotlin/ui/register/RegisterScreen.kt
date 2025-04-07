@@ -11,7 +11,7 @@ import viewmodel.RegisterViewModel
 
 @Composable
 fun RegisterScreen(
-    viewModel: RegisterViewModel = remember { RegisterViewModel() },
+    viewModel: RegisterViewModel,
     onBackToLogin: () -> Unit
 ) {
     val name = viewModel.name

@@ -1,6 +1,5 @@
 package ui.login
 
-import LoginViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,11 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.remember
+import viewmodel.LoginViewModel
 
 
 @Composable
 fun LoginScreen(
-    viewModel: LoginViewModel = remember { LoginViewModel() },
+    viewModel: LoginViewModel,
     onRegisterClick: () -> Unit
 ) {
     val email = viewModel.email
