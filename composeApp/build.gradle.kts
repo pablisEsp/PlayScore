@@ -33,13 +33,24 @@ kotlin {
 
     sourceSets {
         val desktopMain by getting
+        val commonMain by getting
+        val androidMain by getting
 
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
 
-            //HTTP client for Android
+            // HTTP client for Android
             implementation(libs.ktor.client.okhttp)
+
+            // Android lifecycle
+            implementation(libs.androidx.lifecycle.viewmodel)
+            implementation(libs.androidx.lifecycle.runtime.compose)
+
+            // Specific Android dependencies
+            // Koin for Android
+            implementation(libs.koin.android)
+            implementation(libs.koin.androidx.compose)
         }
         commonMain.dependencies {
             // Compose
@@ -50,10 +61,6 @@ kotlin {
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
 
-            // Android lifecycle
-            implementation(libs.androidx.lifecycle.viewmodel)
-            implementation(libs.androidx.lifecycle.runtime.compose)
-
             // Ktor + JSON + coroutines
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
@@ -61,9 +68,12 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
 
-            //Koin
-            implementation("io.insert-koin:koin-core:4.0.4")
-            implementation("io.insert-koin:koin-androidx-compose:4.0.4")
+            // Koin for KMP
+            implementation(libs.koin.core)
+            implementation(libs.koin.compose)
+            implementation(libs.koin.compose.viewmodel)
+            implementation(libs.lifecycle.viewmodel)
+            implementation(libs.navigation.compose)
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
@@ -71,6 +81,14 @@ kotlin {
 
             // HTTP client for desktop
             implementation(libs.ktor.client.cio)
+
+            // Specific lifecycle dependencies for desktop for JVM
+            implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
+            implementation("androidx.lifecycle:lifecycle-runtime:2.8.7")
+
+            // Koin for desktop
+            implementation(libs.koin.core)
+            implementation(libs.koin.compose)
         }
     }
 }

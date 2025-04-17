@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 class LoginViewModel(
     private val authService: AuthService
-) :ViewModel() {
+) : ViewModel() {
     var email by mutableStateOf("")
         private set
 

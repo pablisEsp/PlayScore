@@ -1,10 +1,10 @@
 package org.example.project.di
 
-import data.AuthService
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.core.module.dsl.singleOf
 import viewmodel.LoginViewModel
 import viewmodel.RegisterViewModel
+import data.AuthService
 
 /**
  * Koin module for ViewModels and other app components
@@ -12,8 +12,8 @@ import viewmodel.RegisterViewModel
 val appModule = module {
     // Services
     single { AuthService() }
-
-    // ViewModels - inject AuthService
-    viewModel { LoginViewModel(authService = get()) }
-    viewModel { RegisterViewModel(authService = get()) }
+    
+    // ViewModels
+    factory { LoginViewModel(get()) }
+    factory { RegisterViewModel(get()) }
 }
