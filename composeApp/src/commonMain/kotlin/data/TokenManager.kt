@@ -1,35 +1,48 @@
 package data
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import data.model.User
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
-/**
- * Manages authentication tokens and user session information
- */
 class TokenManager {
-    // Current authentication token
-    var token by mutableStateOf<String?>(null)
+    private var token: String? = null
+    private var tokenExpiration: Long = 0
+    var currentUser: User? = null
         private set
     
-    // Current logged in user
-    var currentUser by mutableStateOf<User?>(null)
-        private set
-    
-    // Authentication state
     val isLoggedIn: Boolean
-        get() = token != null && currentUser != null
+        get() = token != null && currentUser != null && validateToken()
     
-    // Save authentication data
-    fun saveAuthData(newToken: String, user: User?) {
-        token = newToken
-        currentUser = user
+    @OptIn(ExperimentalTime::class)
+    fun saveAuthData(token: String, user: User, expiresIn: Long = 3600) {
+        this.token = token
+        this.currentUser = user
+        // Calculate expiration timestamp (current time + expires_in in seconds)
+        this.tokenExpiration = Clock.System.now().epochSeconds + expiresIn
     }
     
-    // Clear authentication data (logout)
     fun clearAuthData() {
         token = null
         currentUser = null
+        tokenExpiration = 0
+    }
+    
+    // Get the stored token if it's valid
+    fun getToken(): String? {
+        return if (validateToken()) token else null
+    }
+    
+    // Check if the token is still valid
+    @OptIn(ExperimentalTime::class)
+    fun validateToken(): Boolean {
+        val currentTime = Clock.System.now().epochSeconds
+        return token != null && currentTime < tokenExpiration
+    }
+    
+    // Get token expiration time in seconds from now
+    @OptIn(ExperimentalTime::class)
+    fun getTokenRemainingTime(): Long {
+        val currentTime = Clock.System.now().epochSeconds
+        return (tokenExpiration - currentTime).coerceAtLeast(0)
     }
 }

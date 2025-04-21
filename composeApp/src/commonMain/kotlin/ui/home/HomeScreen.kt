@@ -27,6 +27,14 @@ fun HomeScreen(
         }
     }
     
+    // Add loading state while checking current user
+    if (currentUser == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -34,6 +42,7 @@ fun HomeScreen(
                 actions = {
                     IconButton(onClick = {
                         viewModel.logout()
+                        onLogout()
                     }) {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,

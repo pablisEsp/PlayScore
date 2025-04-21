@@ -37,8 +37,8 @@ fun AppNavHost() {
             val viewModel = koinViewModel<RegisterViewModel>()
             RegisterScreen(
                 viewModel = viewModel,
-                onBackToLogin = { navigationManager.navigateBack() },
-                onRegisterSuccess = { navigationManager.navigateTo(Destination.Home) }
+                onBackToLogin = { navigationManager.navigateTo(Destination.Login) },
+                onRegisterSuccess = { navigationManager.navigateTo(Destination.Login) }
             )
         }
         

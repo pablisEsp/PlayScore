@@ -8,24 +8,32 @@ import data.model.User
 class HomeViewModel(
     private val authService: AuthService
 ) : ViewModel() {
-    // Current user information
+    // Use mutableStateOf for better interoperability with your existing code
     var currentUser by mutableStateOf<User?>(null)
         private set
         
-    // Authentication state
     var isLoggedIn by mutableStateOf(false)
         private set
         
     init {
-        // Check if user is logged in and get current user
-        isLoggedIn = authService.isLoggedIn()
-        currentUser = authService.getCurrentUser()
+        // Load current user on initialization
+        loadCurrentUser()
     }
     
-    // Logout function
+    private fun loadCurrentUser() {
+        // Get current user from auth service
+        currentUser = authService.getCurrentUser()
+        isLoggedIn = authService.isLoggedIn()
+        
+        // If not logged in but trying to access home, log this issue
+        if (!isLoggedIn) {
+            println("Warning: Accessing HomeViewModel without being logged in")
+        }
+    }
+    
     fun logout() {
         authService.logout()
-        isLoggedIn = false
         currentUser = null
+        isLoggedIn = false
     }
 }

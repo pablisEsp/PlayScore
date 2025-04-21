@@ -74,6 +74,8 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.lifecycle.viewmodel)
             implementation(libs.navigation.compose)
+
+            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.3.2")
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)

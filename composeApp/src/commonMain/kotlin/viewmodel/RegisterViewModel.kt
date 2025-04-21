@@ -56,7 +56,13 @@ class RegisterViewModel(
                 )
                 currentUser = result.user
                 isRegistered = true
-                registerResult = "Registered successfully!"
+                registerResult = "Registered successfully! Please login to continue."
+                
+                // Important: Log out after registration to force login
+                authService.logout()
+                
+                // Call the success callback after a slight delay to allow UI to update
+                kotlinx.coroutines.delay(300)
                 onRegisterSuccess()
             } catch (e: Exception) {
                 registerResult = "Registration failed: ${e.message}"
@@ -66,5 +72,10 @@ class RegisterViewModel(
                 isLoading = false
             }
         }
+    }
+    
+    fun resetRegistrationState() {
+        isRegistered = false
+        registerResult = null
     }
 }

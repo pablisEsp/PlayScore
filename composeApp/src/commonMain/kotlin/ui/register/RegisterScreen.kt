@@ -25,7 +25,10 @@ fun RegisterScreen(
     // Handle successful registration
     LaunchedEffect(isRegistered) {
         if (isRegistered) {
-            onRegisterSuccess()
+            // Show a success message briefly
+            kotlinx.coroutines.delay(1000)
+            onBackToLogin() // Navigate to login screen instead of home
+            viewModel.resetRegistrationState() // Reset state to avoid re-triggering
         }
     }
 
