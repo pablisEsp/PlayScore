@@ -7,8 +7,10 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import ui.login.LoginScreen
 import ui.register.RegisterScreen
+import ui.home.HomeScreen
 import viewmodel.LoginViewModel
 import viewmodel.RegisterViewModel
+import viewmodel.HomeViewModel
 
 /**
  * Main navigation host that displays the current screen based on destination
@@ -27,7 +29,7 @@ fun AppNavHost() {
             LoginScreen(
                 viewModel = viewModel,
                 onRegisterClick = { navigationManager.navigateTo(Destination.Register) },
-                //onLoginSuccess = { /* We'll add this later when we have more screens */ }
+                onLoginSuccess = { navigationManager.navigateTo(Destination.Home) }
             )
         }
 
@@ -35,7 +37,16 @@ fun AppNavHost() {
             val viewModel = koinViewModel<RegisterViewModel>()
             RegisterScreen(
                 viewModel = viewModel,
-                onBackToLogin = { navigationManager.navigateBack() }
+                onBackToLogin = { navigationManager.navigateBack() },
+                onRegisterSuccess = { navigationManager.navigateTo(Destination.Home) }
+            )
+        }
+        
+        is Destination.Home -> {
+            val viewModel = koinViewModel<HomeViewModel>()
+            HomeScreen(
+                viewModel = viewModel,
+                onLogout = { navigationManager.navigateTo(Destination.Login) }
             )
         }
     }

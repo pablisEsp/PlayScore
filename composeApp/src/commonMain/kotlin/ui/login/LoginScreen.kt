@@ -15,6 +15,7 @@ import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -25,12 +26,21 @@ import viewmodel.LoginViewModel
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel,
-    onRegisterClick: () -> Unit
+    onRegisterClick: () -> Unit,
+    onLoginSuccess: () -> Unit = {}
 ) {
     val email = viewModel.email
     val password = viewModel.password
     val isLoading = viewModel.isLoading
     val loginResult = viewModel.loginResult
+    val isLoggedIn = viewModel.isLoggedIn
+    
+    // Handle successful login
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            onLoginSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -65,7 +75,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { viewModel.login() },
+            onClick = { viewModel.login(onLoginSuccess) },
             enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {

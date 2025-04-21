@@ -12,13 +12,22 @@ import viewmodel.RegisterViewModel
 @Composable
 fun RegisterScreen(
     viewModel: RegisterViewModel,
-    onBackToLogin: () -> Unit
+    onBackToLogin: () -> Unit,
+    onRegisterSuccess: () -> Unit = {}
 ) {
     val name = viewModel.name
     val email = viewModel.email
     val password = viewModel.password
     val isLoading = viewModel.isLoading
     val registerResult = viewModel.registerResult
+    val isRegistered = viewModel.isRegistered
+    
+    // Handle successful registration
+    LaunchedEffect(isRegistered) {
+        if (isRegistered) {
+            onRegisterSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -63,7 +72,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { viewModel.register() },
+            onClick = { viewModel.register(onRegisterSuccess) },
             enabled = !isLoading && name.isNotBlank() && email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {

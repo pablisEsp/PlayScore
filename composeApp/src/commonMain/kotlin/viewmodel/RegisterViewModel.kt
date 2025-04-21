@@ -4,6 +4,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import data.AuthService
 import data.model.RegisterRequest
+import data.model.User
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,6 +26,12 @@ class RegisterViewModel(
 
     var registerResult by mutableStateOf<String?>(null)
         private set
+        
+    var currentUser by mutableStateOf<User?>(null)
+        private set
+        
+    var isRegistered by mutableStateOf(false)
+        private set
 
     fun onNameChanged(newName: String) {
         name = newName
@@ -38,7 +45,7 @@ class RegisterViewModel(
         password = newPassword
     }
 
-    fun register() {
+    fun register(onRegisterSuccess: () -> Unit = {}) {
         isLoading = true
         registerResult = null
 
@@ -47,9 +54,14 @@ class RegisterViewModel(
                 val result = authService.register(
                     RegisterRequest(name, email, password)
                 )
+                currentUser = result.user
+                isRegistered = true
                 registerResult = "Registered successfully!"
+                onRegisterSuccess()
             } catch (e: Exception) {
-                registerResult = "Register failed: ${e.message}"
+                registerResult = "Registration failed: ${e.message}"
+                isRegistered = false
+                currentUser = null
             } finally {
                 isLoading = false
             }

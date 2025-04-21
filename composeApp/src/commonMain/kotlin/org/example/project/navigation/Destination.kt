@@ -10,7 +10,7 @@ sealed interface Destination {
     //object ForgotPassword : Destination
 
     // Main app screens
-//    object Home : Destination
+    object Home : Destination
 //    object Profile : Destination
 //    object Settings : Destination
 //
