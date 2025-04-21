@@ -15,16 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
-import androidx.compose.material.TextFieldDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +34,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalFocusManager
+import io.ktor.websocket.Frame
 
 
 @Composable
@@ -60,37 +52,37 @@ fun AuthTextField(
     val focusManager = LocalFocusManager.current
     var passwordVisible by remember { mutableStateOf(false) }
     
-    OutlinedTextField(
+    androidx.compose.material3.OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { androidx.compose.material3.Text(label) },
         singleLine = true,
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
         leadingIcon = { 
-            Icon(
+            androidx.compose.material3.Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                tint = MaterialTheme.colors.primary
+                tint = MaterialTheme.colorScheme.primary
             )
         },
         trailingIcon = {
             if (isPassword) {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                androidx.compose.material3.IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(24.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colors.primary.copy(alpha = 0.1f))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                             .padding(4.dp)
                     ) {
-                        Text(
+                        androidx.compose.material3.Text(
                             text = if (passwordVisible) "Hide" else "Show",
-                            style = MaterialTheme.typography.caption,
-                            color = MaterialTheme.colors.primary
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -108,11 +100,11 @@ fun AuthTextField(
                 onImeAction()
             }
         ),
-        colors = TextFieldDefaults.outlinedTextFieldColors(
-            focusedBorderColor = MaterialTheme.colors.primary,
-            unfocusedBorderColor = MaterialTheme.colors.primary.copy(alpha = 0.5f),
-            focusedLabelColor = MaterialTheme.colors.primary,
-            cursorColor = MaterialTheme.colors.primary
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            focusedLabelColor = MaterialTheme.colorScheme.primary,
+            cursorColor = MaterialTheme.colorScheme.primary
         )
     )
 }
@@ -125,7 +117,7 @@ fun AuthButton(
     enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    Button(
+    androidx.compose.material3.Button(
         onClick = onClick,
         enabled = enabled && !isLoading,
         modifier = modifier
@@ -137,9 +129,9 @@ fun AuthButton(
                 clip = true
             ),
         shape = RoundedCornerShape(25.dp),
-        colors = ButtonDefaults.buttonColors(
-            backgroundColor = MaterialTheme.colors.primary,
-            disabledBackgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.3f)
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
         )
     ) {
         Box(
@@ -150,8 +142,8 @@ fun AuthButton(
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colors.onPrimary,
+                androidx.compose.material3.CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 2.dp,
                     modifier = Modifier.size(24.dp)
                 )
@@ -162,7 +154,10 @@ fun AuthButton(
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                Text(text = text, style = MaterialTheme.typography.button)
+                androidx.compose.material3.Text(
+                    text = text, 
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
     }
@@ -181,19 +176,19 @@ fun AuthMessage(
         )
     )
     
-    Surface(
+    androidx.compose.material3.Surface(
         modifier = Modifier
             .fillMaxWidth()
             .alpha(alpha)
             .padding(vertical = 8.dp),
         shape = RoundedCornerShape(8.dp),
-        color = if (isError) MaterialTheme.colors.error.copy(alpha = 0.1f) 
-                else MaterialTheme.colors.primary.copy(alpha = 0.1f)
+        color = if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.1f) 
+                else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     ) {
-        Text(
+        androidx.compose.material3.Text(
             text = message,
-            style = MaterialTheme.typography.body2,
-            color = if (isError) MaterialTheme.colors.error else MaterialTheme.colors.primary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(12.dp)
         )
     }
@@ -210,7 +205,7 @@ fun AuthDivider(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .height(1.dp)
                 .fillMaxWidth()
-                .background(MaterialTheme.colors.onSurface.copy(alpha = 0.1f))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                 .align(Alignment.Center)
         )
         
@@ -218,7 +213,7 @@ fun AuthDivider(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colors.primary)
+                .background(MaterialTheme.colorScheme.primary)
                 .align(Alignment.Center)
         )
     }
