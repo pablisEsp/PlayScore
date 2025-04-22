@@ -75,7 +75,7 @@ kotlin {
             implementation(libs.lifecycle.viewmodel)
             implementation(libs.navigation.compose)
 
-            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.3.2")
+            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.6.0")
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
@@ -86,8 +86,8 @@ kotlin {
             implementation(libs.ktor.client.cio)
 
             // Specific lifecycle dependencies for desktop for JVM
-            implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
-            implementation("androidx.lifecycle:lifecycle-runtime:2.8.7")
+            implementation(libs.lifecycle.viewmodel)
+            implementation(libs.androidx.lifecycle.runtime)
 
             // Koin for desktop
             implementation(libs.koin.core)
