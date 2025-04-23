@@ -1,9 +1,9 @@
-package org.example.project
+package com.playscore.project
 
 import androidx.compose.runtime.Composable
-import org.example.project.di.appModule
-import org.example.project.di.navigationModule
-import org.example.project.navigation.AppNavHost
+import com.playscore.project.di.appModule
+import com.playscore.project.di.navigationModule
+import com.playscore.project.navigation.AppNavHost
 import org.koin.compose.KoinApplication
 
 

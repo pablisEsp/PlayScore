@@ -1,4 +1,4 @@
-package org.example.project.navigation
+package com.playscore.project.navigation
 
 /**
  * Sealed interface representing all possible navigation destinations in the app

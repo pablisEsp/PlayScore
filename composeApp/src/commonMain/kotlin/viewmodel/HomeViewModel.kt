@@ -2,38 +2,44 @@ package viewmodel
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
-import data.AuthService
+import auth.FirebaseAuthInterface
+import auth.createFirebaseAuth
 import data.model.User
+import data.model.UserRole
+import data.model.UserStats
+import kotlinx.datetime.Clock
+
 
 class HomeViewModel(
-    private val authService: AuthService
+    private val auth: FirebaseAuthInterface = createFirebaseAuth()
 ) : ViewModel() {
-    // Use mutableStateOf for better interoperability with your existing code
     var currentUser by mutableStateOf<User?>(null)
         private set
-        
-    var isLoggedIn by mutableStateOf(false)
+
+    var isLoggedIn by mutableStateOf(true)
         private set
-        
+
     init {
-        // Load current user on initialization
-        loadCurrentUser()
-    }
-    
-    private fun loadCurrentUser() {
-        // Get current user from auth service
-        currentUser = authService.getCurrentUser()
-        isLoggedIn = authService.isLoggedIn()
-        
-        // If not logged in but trying to access home, log this issue
-        if (!isLoggedIn) {
-            println("Warning: Accessing HomeViewModel without being logged in")
+        // Get current user from Firebase Auth
+        auth.getCurrentUser()?.let { firebaseUser ->
+            currentUser = User(
+                id = firebaseUser.uid,
+                name = firebaseUser.displayName ?: "User",
+                email = firebaseUser.email ?: "",
+                globalRole = UserRole.USER,
+                teamMembership = null,
+                profileImage = "", // You could get this from Firebase user photoUrl if needed
+                stats = UserStats(),
+                createdAt = Clock.System.now().toString() // ISO-8601 format
+            )
+        } ?: run {
+            isLoggedIn = false
         }
     }
-    
+
     fun logout() {
-        authService.logout()
-        currentUser = null
+        auth.signOut()
         isLoggedIn = false
+        currentUser = null
     }
 }

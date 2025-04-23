@@ -1,16 +1,19 @@
 package viewmodel
 
-import androidx.compose.runtime.*
+import auth.createFirebaseAuth
+import auth.FirebaseAuthInterface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import data.AuthService
-import data.model.LoginRequest
-import data.model.User
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
 
 class LoginViewModel(
-    private val authService: AuthService
+    private val coroutineContext: CoroutineContext = Dispatchers.Main,
+    private val auth: FirebaseAuthInterface = createFirebaseAuth()
 ) : ViewModel() {
     var email by mutableStateOf("")
         private set
@@ -23,52 +26,55 @@ class LoginViewModel(
 
     var loginResult by mutableStateOf<String?>(null)
         private set
-        
-    var currentUser by mutableStateOf<User?>(null)
-        private set
-        
+
     var isLoggedIn by mutableStateOf(false)
         private set
 
     init {
         // Check if user is already logged in
-        isLoggedIn = authService.isLoggedIn()
-        currentUser = authService.getCurrentUser()
+        isLoggedIn = auth.getCurrentUser() != null
     }
 
-    fun onEmailChanged(newEmail: String) {
-        email = newEmail
+    fun onEmailChanged(value: String) {
+        email = value
     }
 
-    fun onPasswordChanged(newPassword: String) {
-        password = newPassword
+    fun onPasswordChanged(value: String) {
+        password = value
     }
 
-    fun login(onLoginSuccess: () -> Unit = {}) {
+    fun login(onLoginSuccess: () -> Unit) {
+        if (email.isBlank() || password.isBlank()) {
+            loginResult = "Email and password cannot be empty"
+            return
+        }
+
         isLoading = true
         loginResult = null
 
-        CoroutineScope(Dispatchers.Default).launch {
-            try {
-                val result = authService.login(LoginRequest(email, password))
-                currentUser = result.user
+        CoroutineScope(coroutineContext).launch {
+            val result = auth.signIn(email, password)
+
+            if (result.success) {
                 isLoggedIn = true
-                loginResult = "Login successful!"
+                loginResult = "Login successful"
                 onLoginSuccess()
-            } catch (e: Exception) {
-                loginResult = "Login failed: ${e.message}"
+            } else {
+                // Extract more specific error codes if needed
+                loginResult = when {
+                    result.errorMessage?.contains("no user record", ignoreCase = true) == true -> "User not found"
+                    result.errorMessage?.contains("password is invalid", ignoreCase = true) == true -> "Invalid credentials"
+                    else -> "Login failed: ${result.errorMessage}"
+                }
                 isLoggedIn = false
-                currentUser = null
-            } finally {
-                isLoading = false
             }
+
+            isLoading = false
         }
     }
-    
-    fun logout() {
-        authService.logout()
+
+    fun resetLoginState() {
         isLoggedIn = false
-        currentUser = null
         loginResult = null
     }
 }

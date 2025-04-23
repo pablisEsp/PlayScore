@@ -8,6 +8,9 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     kotlin("plugin.serialization") version "2.1.0"
+
+    // Add the Google services Gradle plugin
+    id("com.google.gms.google-services")
 }
 
 kotlin {
@@ -51,6 +54,17 @@ kotlin {
             // Koin for Android
             implementation(libs.koin.android)
             implementation(libs.koin.androidx.compose)
+
+            //Firebase dependencies
+            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:32.7.3"))
+            implementation("com.google.firebase:firebase-auth:23.2.0")
+
+            // TODO: Add the dependencies for Firebase products you want to use
+            // When using the BoM, don't specify versions in Firebase dependencies
+            implementation("com.google.firebase:firebase-analytics")
+
+
+
         }
         commonMain.dependencies {
             // Compose
@@ -75,7 +89,9 @@ kotlin {
             implementation(libs.lifecycle.viewmodel)
             implementation(libs.navigation.compose)
 
-            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.6.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
@@ -97,11 +113,11 @@ kotlin {
 }
 
 android {
-    namespace = "org.example.project"
+    namespace = "com.playscore.app"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "org.example.project"
+        applicationId = "com.playscore.app"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -131,11 +147,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "org.example.project.MainKt"
+        mainClass = "com.playscore.project.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "org.example.project"
+            packageName = "com.playscore.project"
             packageVersion = "1.0.0"
         }
     }

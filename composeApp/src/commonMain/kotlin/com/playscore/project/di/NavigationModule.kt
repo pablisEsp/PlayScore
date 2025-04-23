@@ -1,6 +1,6 @@
-package org.example.project.di
+package com.playscore.project.di
 
-import org.example.project.navigation.NavigationManager
+import com.playscore.project.navigation.NavigationManager
 import org.koin.dsl.module
 
 /**
