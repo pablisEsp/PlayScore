@@ -21,7 +21,7 @@ koin = "4.0.4"
 koinComposeMultiplatform = "4.0.4"
 lifecycleViewmodel = "2.8.7"
 lifecycleRuntime = "2.8.7"
-navigationCompose = "2.8.0-alpha10"
+navigationCompose = "2.9.0-alpha16"
 
 # Ktor and JSON versions
 ktor = "3.1.1"
