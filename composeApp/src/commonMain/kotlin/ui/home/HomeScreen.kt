@@ -20,22 +20,37 @@ fun HomeScreen(
 ) {
     val currentUser = viewModel.currentUser
     val isLoggedIn = viewModel.isLoggedIn
-    
+    val isLoading = viewModel.isLoading
+
     // If not logged in, trigger logout navigation
     LaunchedEffect(isLoggedIn) {
         if (!isLoggedIn) {
             onLogout()
         }
     }
-    
-    // Add loading state while checking current user
-    if (currentUser == null) {
+
+    // Show loading indicator only while loading
+    if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
     }
-    
+
+
+    // If not loading but user is still null, something went wrong
+    if (currentUser == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Error loading user data")
+                Button(onClick = { viewModel.logout(); onLogout() }) {
+                    Text("Return to Login")
+                }
+            }
+        }
+        return
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

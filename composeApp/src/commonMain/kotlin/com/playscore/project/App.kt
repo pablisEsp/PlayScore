@@ -9,10 +9,5 @@ import org.koin.compose.KoinApplication
 
 @Composable
 fun App() {
-    // Setup Koin at the app entry point
-    KoinApplication(application = {
-        modules(appModule, navigationModule)
-    }) {
-        AppNavHost()
-    }
+    AppNavHost()
 }

@@ -1,81 +1,51 @@
 package ui.login
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.unit.dp
-import viewmodel.LoginViewModel
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import ui.components.AuthButton
 import ui.components.AuthDivider
 import ui.components.AuthMessage
 import ui.components.AuthTextField
 import ui.theme.AppTheme
+import viewmodel.LoginViewModel
 
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel,
     onRegisterClick: () -> Unit,
-    onLoginSuccess: () -> Unit = {}
+    onLoginSuccess: () -> Unit
 ) {
     val email = viewModel.email
     val password = viewModel.password
     val isLoading = viewModel.isLoading
-    val loginResult = viewModel.loginResult
+    val loginMessage = viewModel.loginMessage  // Fixed: Use loginMessage instead of loginResult
     val isLoggedIn = viewModel.isLoggedIn
-    
-    // Track if animation should play (only on first composition)
-    var shouldAnimate by remember { mutableStateOf(true) }
-    
-    // Check if already logged in at the start
-    LaunchedEffect(Unit) {
-        if (viewModel.isLoggedIn) {
-            onLoginSuccess()
-        }
-    }
-    
-    // Handle login state changes
+
+    // Handle successful login
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             onLoginSuccess()
+            viewModel.resetLoginState()
         }
-    }
-    
-    // Reset animation after first render
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(1000)
-        shouldAnimate = false
     }
 
     AppTheme {
@@ -91,6 +61,7 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Simplified animation: Apply directly without shouldAnimate
                 AnimatedVisibility(
                     visible = true,
                     enter = fadeIn(
@@ -114,9 +85,9 @@ fun LoginScreen(
                             ),
                             color = MaterialTheme.colorScheme.primary
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "Sign in to continue",
                             style = MaterialTheme.typography.titleLarge,
@@ -124,12 +95,11 @@ fun LoginScreen(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(32.dp))
-                
+
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -145,9 +115,9 @@ fun LoginScreen(
                             leadingIcon = Icons.Filled.Email,
                             keyboardType = KeyboardType.Email
                         )
-                        
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        
+
                         AuthTextField(
                             value = password,
                             onValueChange = viewModel::onPasswordChanged,
@@ -155,55 +125,53 @@ fun LoginScreen(
                             leadingIcon = Icons.Filled.Lock,
                             isPassword = true,
                             imeAction = ImeAction.Done,
-                            onImeAction = { 
+                            onImeAction = {
                                 if (email.isNotBlank() && password.isNotBlank()) {
                                     viewModel.login(onLoginSuccess)
                                 }
                             }
                         )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        TextButton(
-                            onClick = { /* Implement forgot password functionality */ },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Text(
-                                "Forgot Password?",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
                         AuthButton(
                             text = "Sign In",
                             onClick = { viewModel.login(onLoginSuccess) },
                             isLoading = isLoading,
                             enabled = email.isNotBlank() && password.isNotBlank()
                         )
-                        
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        
-                        loginResult?.let {
+
+                        loginMessage?.let { message ->
                             AuthMessage(
-                                message = it,
-                                isError = !it.startsWith("Login successful")
+                                message = message,
+                                isError = true  // All messages from LoginViewModel are errors
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TextButton(onClick = { /* Implement forgot password */ }) {
+                            Text(
+                                text = "Forgot Password?",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 AuthDivider()
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 TextButton(onClick = onRegisterClick) {
                     Text(
-                        "Don't have an account? Sign Up",
+                        text = "Don't have an account? Sign Up",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.primary

@@ -55,13 +55,14 @@ kotlin {
             implementation(libs.koin.android)
             implementation(libs.koin.androidx.compose)
 
-            //Firebase dependencies
-            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:32.7.3"))
-            implementation("com.google.firebase:firebase-auth:23.2.0")
+            // Firebase dependencies go here
+            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:33.12.0"))
+            implementation("com.google.firebase:firebase-auth")
+            implementation("com.google.firebase:firebase-database")
 
-            // TODO: Add the dependencies for Firebase products you want to use
-            // When using the BoM, don't specify versions in Firebase dependencies
-            implementation("com.google.firebase:firebase-analytics")
+            // For Task.await() extension
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
+
 
 
 
@@ -91,6 +92,9 @@ kotlin {
 
             implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+
+
+
 
         }
         desktopMain.dependencies {

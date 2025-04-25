@@ -1,45 +1,69 @@
 package viewmodel
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import auth.FirebaseAuthInterface
 import auth.createFirebaseAuth
 import data.model.User
-import data.model.UserRole
-import data.model.UserStats
-import kotlinx.datetime.Clock
-
+import database.FirebaseDatabaseInterface
+import database.createFirebaseDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlin.coroutines.CoroutineContext
 
 class HomeViewModel(
-    private val auth: FirebaseAuthInterface = createFirebaseAuth()
+    private val coroutineContext: CoroutineContext = Dispatchers.Main,
+    private val auth: FirebaseAuthInterface = createFirebaseAuth(),
+    private val database: FirebaseDatabaseInterface = createFirebaseDatabase()
 ) : ViewModel() {
     var currentUser by mutableStateOf<User?>(null)
+        private set
+
+    var isLoading by mutableStateOf(true)
         private set
 
     var isLoggedIn by mutableStateOf(true)
         private set
 
     init {
-        // Get current user from Firebase Auth
-        auth.getCurrentUser()?.let { firebaseUser ->
-            currentUser = User(
-                id = firebaseUser.uid,
-                name = firebaseUser.displayName ?: "User",
-                email = firebaseUser.email ?: "",
-                globalRole = UserRole.USER,
-                teamMembership = null,
-                profileImage = "", // You could get this from Firebase user photoUrl if needed
-                stats = UserStats(),
-                createdAt = Clock.System.now().toString() // ISO-8601 format
-            )
-        } ?: run {
+        loadCurrentUser()
+    }
+
+    private fun loadCurrentUser() {
+        val authUser = auth.getCurrentUser() ?: run {
+            isLoading = false
             isLoggedIn = false
+            return
+        }
+
+        CoroutineScope(coroutineContext).launch {
+            try {
+                withTimeout(10000) { // 5 second timeout
+                    val userData = database.getUserData(authUser.uid)
+                    currentUser = userData
+                    isLoggedIn = true
+                }
+            } catch (e: Exception) {
+                // Failed to get user data, but we still have an auth user
+                // Create a minimal user object with the auth data
+                currentUser = User(
+                    id = authUser.uid,
+                    name = authUser.displayName ?: "User",
+                    email = authUser.email ?: ""
+                )
+            } finally {
+                isLoading = false
+            }
         }
     }
 
     fun logout() {
         auth.signOut()
-        isLoggedIn = false
         currentUser = null
+        isLoggedIn = false
     }
 }
