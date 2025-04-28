@@ -36,7 +36,8 @@ class RegisterViewModel(
     var registerResult by mutableStateOf<String?>(null)
         private set
 
-    var isRegistered by mutableStateOf(false)
+    // Replace 'isRegistered' with 'isRegistrationComplete' to match AppNavHost.kt
+    var isRegistrationComplete by mutableStateOf(false)
         private set
 
     fun onNameChanged(value: String) {
@@ -51,7 +52,8 @@ class RegisterViewModel(
         password = value
     }
 
-    fun register(onRegisterSuccess: () -> Unit) {
+    // Remove the onRegisterSuccess callback parameter
+    fun register() {
         if (name.isBlank() || email.isBlank() || password.isBlank()) {
             registerResult = "All fields are required"
             return
@@ -86,9 +88,9 @@ class RegisterViewModel(
                         }
                     }
 
-                    isRegistered = true
+                    isRegistrationComplete = true  // Renamed from isRegistered
                     registerResult = "Registered successfully"
-                    onRegisterSuccess()
+                    // No callback call here anymore
                 } else {
                     // Extract more specific error codes if needed
                     registerResult = when {
@@ -96,11 +98,11 @@ class RegisterViewModel(
                         result.errorMessage?.contains("password is invalid", ignoreCase = true) == true -> "Password should be at least 6 characters"
                         else -> "Registration failed: ${result.errorMessage}"
                     }
-                    isRegistered = false
+                    isRegistrationComplete = false  // Renamed from isRegistered
                 }
             } catch (e: Exception) {
                 registerResult = "Registration failed: ${e.message}"
-                isRegistered = false
+                isRegistrationComplete = false  // Renamed from isRegistered
             } finally {
                 isLoading = false
             }
@@ -108,7 +110,7 @@ class RegisterViewModel(
     }
 
     fun resetRegistrationState() {
-        isRegistered = false
+        isRegistrationComplete = false  // Renamed from isRegistered
         registerResult = null
     }
 }

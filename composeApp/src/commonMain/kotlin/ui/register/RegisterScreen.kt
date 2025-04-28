@@ -49,28 +49,19 @@ import ui.theme.AppTheme
 fun RegisterScreen(
     viewModel: RegisterViewModel,
     onBackToLogin: () -> Unit,
-    onRegisterSuccess: () -> Unit = {}
 ) {
     val name = viewModel.name
     val email = viewModel.email
     val password = viewModel.password
     val isLoading = viewModel.isLoading
     val registerResult = viewModel.registerResult
-    val isRegistered = viewModel.isRegistered
-    
+
+    // Replace isRegistered with isRegistrationComplete to match ViewModel
+    val isRegistrationComplete = viewModel.isRegistrationComplete
+
     // Track if animation should play (only on first composition)
     var shouldAnimate by remember { mutableStateOf(true) }
-    
-    // Handle successful registration
-    LaunchedEffect(isRegistered) {
-        if (isRegistered) {
-            // Show a success message briefly
-            kotlinx.coroutines.delay(1000)
-            onBackToLogin() // Navigate to login screen instead of home
-            viewModel.resetRegistrationState() // Reset state to avoid re-triggering
-        }
-    }
-    
+
     // Reset animation after first render
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1000)
@@ -113,9 +104,9 @@ fun RegisterScreen(
                             ),
                             color = MaterialTheme.colorScheme.primary
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "Sign up to get started",
                             style = MaterialTheme.typography.titleLarge,
@@ -123,9 +114,9 @@ fun RegisterScreen(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(32.dp))
-                
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth(),
@@ -143,9 +134,9 @@ fun RegisterScreen(
                             label = "Full Name",
                             leadingIcon = Icons.Filled.Person
                         )
-                        
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        
+
                         AuthTextField(
                             value = email,
                             onValueChange = viewModel::onEmailChanged,
@@ -153,9 +144,9 @@ fun RegisterScreen(
                             leadingIcon = Icons.Filled.Email,
                             keyboardType = KeyboardType.Email
                         )
-                        
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        
+
                         AuthTextField(
                             value = password,
                             onValueChange = viewModel::onPasswordChanged,
@@ -163,33 +154,33 @@ fun RegisterScreen(
                             leadingIcon = Icons.Filled.Lock,
                             isPassword = true,
                             imeAction = ImeAction.Done,
-                            onImeAction = { 
+                            onImeAction = {
                                 if (name.isNotBlank() && email.isNotBlank() && password.isNotBlank()) {
-                                    viewModel.register(onRegisterSuccess)
+                                    viewModel.register()
                                 }
                             }
                         )
-                        
+
                         Spacer(modifier = Modifier.height(24.dp))
-                        
+
                         AuthButton(
                             text = "Create Account",
-                            onClick = { viewModel.register(onRegisterSuccess) },
+                            onClick = { viewModel.register() },
                             isLoading = isLoading,
                             enabled = name.isNotBlank() && email.isNotBlank() && password.isNotBlank()
                         )
-                        
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        
+
                         registerResult?.let {
                             AuthMessage(
                                 message = it,
                                 isError = !it.startsWith("Registered")
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "By signing up, you agree to our Terms of Service and Privacy Policy",
                             style = MaterialTheme.typography.bodySmall,
@@ -199,13 +190,13 @@ fun RegisterScreen(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 AuthDivider()
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 TextButton(onClick = onBackToLogin) {
                     Text(
                         "Already have an account? Sign In",

@@ -22,7 +22,6 @@ class LoginViewModel(
     private val auth: FirebaseAuthInterface,
     private val database: FirebaseDatabaseInterface,
     private val tokenManager: TokenManager,
-    private val navigationManager: NavigationManager
 ) : ViewModel() {
     var email by mutableStateOf("")
         private set
@@ -47,7 +46,7 @@ class LoginViewModel(
         password = value
     }
 
-    fun login(onLoginSuccess: () -> Unit) {
+    fun login() {
         if (email.isBlank() || password.isBlank()) {
             loginMessage = "Email and password cannot be empty"
             return
@@ -69,24 +68,28 @@ class LoginViewModel(
                             println("User data loaded: $userData")
 
                             if (userData != null) {
+                                // Save auth data first
                                 tokenManager.saveAuthData(
                                     token = auth.getIdToken() ?: "",
-                                    user = userData as User
+                                    user = userData
                                 )
+                                println("Auth data saved to TokenManager")
 
                                 withContext(coroutineContext) {
-                                    isLoggedIn = true
+                                    println("Setting isLoading = false and isLoggedIn = true")
                                     isLoading = false
-                                    navigationManager.navigateToRoot(Destination.Home)
+                                    isLoggedIn = true
+                                    // No callback here anymore
                                 }
                             } else {
                                 withContext(coroutineContext) {
+                                    println("User data was null - login failed")
                                     loginMessage = "Could not load user data. Please try again."
                                     isLoading = false
                                 }
                             }
                         } catch (e: Exception) {
-                            println("Error loading user data")
+                            println("Error loading user data: ${e.message}")
                             withContext(coroutineContext) {
                                 loginMessage = "Error loading your user profile: ${e.message}"
                                 isLoading = false
@@ -94,11 +97,12 @@ class LoginViewModel(
                         }
                     }
                 } else {
+                    println("Auth result was not successful: ${authResult.errorMessage}")
                     loginMessage = authResult.errorMessage ?: "Login failed"
                     isLoading = false
                 }
             } catch (e: Exception) {
-                println("Login error")
+                println("Login exception: ${e.message}")
                 loginMessage = e.message ?: "An error occurred during login"
                 isLoading = false
             }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import auth.FirebaseAuthInterface
 import auth.createFirebaseAuth
+import data.TokenManager
 import data.model.User
 import database.FirebaseDatabaseInterface
 import database.createFirebaseDatabase
@@ -18,7 +19,8 @@ import kotlin.coroutines.CoroutineContext
 class HomeViewModel(
     private val coroutineContext: CoroutineContext = Dispatchers.Main,
     private val auth: FirebaseAuthInterface = createFirebaseAuth(),
-    private val database: FirebaseDatabaseInterface = createFirebaseDatabase()
+    private val database: FirebaseDatabaseInterface = createFirebaseDatabase(),
+    private val tokenManager: TokenManager
 ) : ViewModel() {
     var currentUser by mutableStateOf<User?>(null)
         private set
@@ -34,6 +36,14 @@ class HomeViewModel(
     }
 
     private fun loadCurrentUser() {
+        // First, try to get user from TokenManager
+        val savedUser = tokenManager.getValidatedUser()
+        if (savedUser != null) {
+            currentUser = savedUser
+            isLoading = false
+            return
+        }
+
         val authUser = auth.getCurrentUser() ?: run {
             isLoading = false
             isLoggedIn = false
@@ -42,14 +52,21 @@ class HomeViewModel(
 
         CoroutineScope(coroutineContext).launch {
             try {
-                withTimeout(10000) { // 5 second timeout
+                withTimeout(10000) { // 10 second timeout
                     val userData = database.getUserData(authUser.uid)
                     currentUser = userData
-                    isLoggedIn = true
+                    isLoggedIn = userData != null
+
+                    // Save to token manager if found
+                    if (userData != null) {
+                        tokenManager.saveAuthData(
+                            token = auth.getIdToken() ?: "",
+                            user = userData
+                        )
+                    }
                 }
             } catch (e: Exception) {
-                // Failed to get user data, but we still have an auth user
-                // Create a minimal user object with the auth data
+                // Create minimal user as fallback
                 currentUser = User(
                     id = authUser.uid,
                     name = authUser.displayName ?: "User",
@@ -63,6 +80,7 @@ class HomeViewModel(
 
     fun logout() {
         auth.signOut()
+        tokenManager.clearAuthData() // Make sure to clear saved data
         currentUser = null
         isLoggedIn = false
     }

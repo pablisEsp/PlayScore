@@ -15,19 +15,11 @@ import viewmodel.HomeViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel,
-    onLogout: () -> Unit
+    viewModel: HomeViewModel
 ) {
     val currentUser = viewModel.currentUser
-    val isLoggedIn = viewModel.isLoggedIn
     val isLoading = viewModel.isLoading
 
-    // If not logged in, trigger logout navigation
-    LaunchedEffect(isLoggedIn) {
-        if (!isLoggedIn) {
-            onLogout()
-        }
-    }
 
     // Show loading indicator only while loading
     if (isLoading) {
@@ -43,7 +35,7 @@ fun HomeScreen(
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Error loading user data")
-                Button(onClick = { viewModel.logout(); onLogout() }) {
+                Button(onClick = { viewModel.logout() }) {
                     Text("Return to Login")
                 }
             }
@@ -56,10 +48,7 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("PlayScore") },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.logout()
-                        onLogout()
-                    }) {
+                    IconButton(onClick = { viewModel.logout() }) { // Remove onLogout() call
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
                             contentDescription = "Logout"
@@ -98,25 +87,25 @@ fun HomeScreen(
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Text(
-                        text = "Welcome, ${currentUser?.name ?: "User"}!",
+                        text = "Welcome, ${currentUser.name}!",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Text(
-                        text = currentUser?.email ?: "",
+                        text = currentUser.email,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
-                    if (currentUser?.teamMembership?.teamId != null) {
+
+                    if (currentUser.teamMembership?.teamId != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Team Role: ${currentUser.teamMembership.role}",
@@ -126,7 +115,7 @@ fun HomeScreen(
                     }
                 }
             }
-            
+
             // User stats
             currentUser?.stats?.let { stats ->
                 Card(

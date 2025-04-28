@@ -32,21 +32,11 @@ import viewmodel.LoginViewModel
 fun LoginScreen(
     viewModel: LoginViewModel,
     onRegisterClick: () -> Unit,
-    onLoginSuccess: () -> Unit
 ) {
     val email = viewModel.email
     val password = viewModel.password
     val isLoading = viewModel.isLoading
-    val loginMessage = viewModel.loginMessage  // Fixed: Use loginMessage instead of loginResult
-    val isLoggedIn = viewModel.isLoggedIn
-
-    // Handle successful login
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) {
-            onLoginSuccess()
-            viewModel.resetLoginState()
-        }
-    }
+    val loginMessage = viewModel.loginMessage
 
     AppTheme {
         Box(
@@ -127,7 +117,7 @@ fun LoginScreen(
                             imeAction = ImeAction.Done,
                             onImeAction = {
                                 if (email.isNotBlank() && password.isNotBlank()) {
-                                    viewModel.login(onLoginSuccess)
+                                    viewModel.login()
                                 }
                             }
                         )
@@ -136,10 +126,11 @@ fun LoginScreen(
 
                         AuthButton(
                             text = "Sign In",
-                            onClick = { viewModel.login(onLoginSuccess) },
+                            onClick = { viewModel.login() }, // No callback parameter
                             isLoading = isLoading,
                             enabled = email.isNotBlank() && password.isNotBlank()
                         )
+
 
                         Spacer(modifier = Modifier.height(16.dp))
 

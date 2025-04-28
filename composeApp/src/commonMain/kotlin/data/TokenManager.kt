@@ -17,6 +17,7 @@ class TokenManager {
     fun saveAuthData(token: String, user: User, expiresIn: Long = 3600) {
         this.token = token
         this.currentUser = user
+
         // Calculate expiration timestamp (current time + expires_in in seconds)
         this.tokenExpiration = Clock.System.now().epochSeconds + expiresIn
     }
@@ -31,7 +32,14 @@ class TokenManager {
     fun getToken(): String? {
         return if (validateToken()) token else null
     }
-    
+
+    // Get the current user if token is valid
+    // Use a different name to avoid JVM signature clash with the property getter
+    fun getValidatedUser(): User? {
+        return if (validateToken()) currentUser else null
+    }
+
+
     // Check if the token is still valid
     @OptIn(ExperimentalTime::class)
     fun validateToken(): Boolean {
@@ -45,4 +53,5 @@ class TokenManager {
         val currentTime = Clock.System.now().epochSeconds
         return (tokenExpiration - currentTime).coerceAtLeast(0)
     }
+
 }
