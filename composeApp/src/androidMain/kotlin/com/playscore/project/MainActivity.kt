@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import com.google.firebase.FirebaseApp
 import com.playscore.project.di.androidPlatformModule
 import com.playscore.project.di.appModule
-import com.playscore.project.di.navigationModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext.startKoin
 
@@ -23,7 +22,7 @@ class MainActivity : ComponentActivity() {
         // Initialize Koin for Android
         startKoin {
             androidContext(this@MainActivity)
-            modules(appModule, navigationModule, androidPlatformModule)
+            modules(appModule, androidPlatformModule)
         }
 
 

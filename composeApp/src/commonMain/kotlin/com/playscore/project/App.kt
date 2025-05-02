@@ -1,13 +1,16 @@
 package com.playscore.project
 
 import androidx.compose.runtime.Composable
-import com.playscore.project.di.appModule
-import com.playscore.project.di.navigationModule
-import com.playscore.project.navigation.AppNavHost
-import org.koin.compose.KoinApplication
-
+import auth.FirebaseAuthInterface
+import navigation.AppNavHost
+import org.koin.compose.koinInject
+import ui.theme.AppTheme
 
 @Composable
-fun App() {
-    AppNavHost()
+fun App(
+    firebaseAuth: FirebaseAuthInterface = koinInject()
+) {
+    AppTheme {
+        AppNavHost(firebaseAuth = firebaseAuth)
+    }
 }

@@ -1,122 +1,93 @@
 package viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import auth.FirebaseAuthInterface
-import com.playscore.project.navigation.Destination
-import com.playscore.project.navigation.NavigationManager
 import data.TokenManager
 import data.model.User
 import database.FirebaseDatabaseInterface
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.CoroutineContext
 
 class LoginViewModel(
-    private val coroutineContext: CoroutineContext = Dispatchers.Main,
     private val auth: FirebaseAuthInterface,
     private val database: FirebaseDatabaseInterface,
     private val tokenManager: TokenManager,
 ) : ViewModel() {
-    var email by mutableStateOf("")
-        private set
+    private val _email = MutableStateFlow("")
+    val email = _email.asStateFlow()
 
-    var password by mutableStateOf("")
-        private set
+    private val _password = MutableStateFlow("")
+    val password = _password.asStateFlow()
 
-    var isLoading by mutableStateOf(false)
-        private set
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
 
-    var loginMessage by mutableStateOf<String?>(null)
-        private set
+    private val _loginMessage = MutableStateFlow<String?>(null)
+    val loginMessage = _loginMessage.asStateFlow()
 
-    var isLoggedIn by mutableStateOf(false)
-        private set
+    private val _isLoggedIn = MutableStateFlow(false)
+    val isLoggedIn = _isLoggedIn.asStateFlow()
 
     fun onEmailChanged(value: String) {
-        email = value
+        _email.value = value
     }
 
     fun onPasswordChanged(value: String) {
-        password = value
+        _password.value = value
     }
 
     fun login() {
-        if (email.isBlank() || password.isBlank()) {
-            loginMessage = "Email and password cannot be empty"
+        if (_email.value.isBlank() || _password.value.isBlank()) {
+            _loginMessage.value = "Email and password cannot be empty"
             return
         }
 
-        isLoading = true
-        loginMessage = null
+        _isLoading.value = true
+        _loginMessage.value = null
 
-        CoroutineScope(coroutineContext).launch {
+        viewModelScope.launch {
             try {
-                val authResult = auth.signIn(email, password)
+                val authResult = auth.signIn(_email.value, _password.value)
+                if (!authResult.success) {
+                    _loginMessage.value = authResult.errorMessage ?: "Login failed"
+                    _isLoading.value = false
+                    return@launch
+                }
 
-                if (authResult.success) {
-                    println("Authentication successful for user: ${authResult.userId}")
+                val userData = withContext(Dispatchers.IO) {
+                    database.getUserData(authResult.userId)
+                }
 
+                if (userData != null) {
                     withContext(Dispatchers.IO) {
-                        try {
-                            val userData = database.getUserData(authResult.userId)
-                            println("User data loaded: $userData")
-
-                            if (userData != null) {
-                                // Save auth data first
-                                tokenManager.saveAuthData(
-                                    token = auth.getIdToken() ?: "",
-                                    user = userData
-                                )
-                                println("Auth data saved to TokenManager")
-
-                                withContext(coroutineContext) {
-                                    println("Setting isLoading = false and isLoggedIn = true")
-                                    isLoading = false
-                                    isLoggedIn = true
-                                    // No callback here anymore
-                                }
-                            } else {
-                                withContext(coroutineContext) {
-                                    println("User data was null - login failed")
-                                    loginMessage = "Could not load user data. Please try again."
-                                    isLoading = false
-                                }
-                            }
-                        } catch (e: Exception) {
-                            println("Error loading user data: ${e.message}")
-                            withContext(coroutineContext) {
-                                loginMessage = "Error loading your user profile: ${e.message}"
-                                isLoading = false
-                            }
-                        }
+                        val token = auth.getIdToken() ?: ""
+                        tokenManager.saveAuthData(token, userData)
                     }
+                    _isLoggedIn.value = true
                 } else {
-                    println("Auth result was not successful: ${authResult.errorMessage}")
-                    loginMessage = authResult.errorMessage ?: "Login failed"
-                    isLoading = false
+                    _loginMessage.value = "Failed to load user data"
                 }
             } catch (e: Exception) {
-                println("Login exception: ${e.message}")
-                loginMessage = e.message ?: "An error occurred during login"
-                isLoading = false
+                _loginMessage.value = "Login error: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
     fun resetLoginState() {
-        loginMessage = null
-        isLoggedIn = false
+        _isLoggedIn.value = false
+        _loginMessage.value = null
     }
 
     fun clearForm() {
-        email = ""
-        password = ""
-        loginMessage = null
+        _email.value = ""
+        _password.value = ""
+        _loginMessage.value = null
     }
 }

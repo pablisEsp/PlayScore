@@ -1,68 +1,60 @@
 package ui.register
 
-import androidx.compose.ui.unit.dp
-import viewmodel.RegisterViewModel
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import org.koin.compose.koinInject
 import ui.components.AuthButton
 import ui.components.AuthDivider
 import ui.components.AuthMessage
 import ui.components.AuthTextField
 import ui.theme.AppTheme
+import viewmodel.RegisterViewModel
 
 @Composable
 fun RegisterScreen(
-    viewModel: RegisterViewModel,
-    onBackToLogin: () -> Unit,
+    navController: NavController,
+    viewModel: RegisterViewModel = koinInject()
 ) {
-    val name = viewModel.name
-    val email = viewModel.email
-    val password = viewModel.password
-    val isLoading = viewModel.isLoading
-    val registerResult = viewModel.registerResult
+    val name by viewModel.name.collectAsState()
+    val email by viewModel.email.collectAsState()
+    val password by viewModel.password.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val registerResult by viewModel.registerResult.collectAsState()
+    val isRegistrationComplete by viewModel.isRegistrationComplete.collectAsState()
 
-    // Replace isRegistered with isRegistrationComplete to match ViewModel
-    val isRegistrationComplete = viewModel.isRegistrationComplete
+    LaunchedEffect(isRegistrationComplete) {
+        if (isRegistrationComplete) {
+            navController.navigate("navigation.HomeScreen") {
+                popUpTo("navigation.LoginScreen") {
+                    inclusive = true
+                }
+            }
+            viewModel.resetRegistrationState()
+        }
+    }
 
-    // Track if animation should play (only on first composition)
     var shouldAnimate by remember { mutableStateOf(true) }
 
-    // Reset animation after first render
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1000)
         shouldAnimate = false
@@ -118,8 +110,7 @@ fun RegisterScreen(
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -197,9 +188,9 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                TextButton(onClick = onBackToLogin) {
+                TextButton(onClick = { navController.navigate("navigation.LoginScreen") }) {
                     Text(
-                        "Already have an account? Sign In",
+                        text = "Already have an account? Sign In",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.primary

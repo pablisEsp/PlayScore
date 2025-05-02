@@ -1,7 +1,10 @@
 package com.playscore.project.di
 
-import com.playscore.project.navigation.NavigationManager
+import auth.FirebaseAuthInterface
+import auth.createFirebaseAuth
 import data.TokenManager
+import database.FirebaseDatabaseInterface
+import database.createFirebaseDatabase
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
@@ -13,13 +16,13 @@ import kotlin.coroutines.CoroutineContext
 
 // Common module for shared dependencies
 val appModule = module {
-    // Platform-specific dependencies (expected to be provided by platform modules)
-    // single<FirebaseAuthInterface> { createFirebaseAuth() } // Provided in platform modules
-    // single<FirebaseDatabaseInterface> { createFirebaseDatabase() } // Provided in platform modules
+    // Firebase
+    single<FirebaseAuthInterface> { createFirebaseAuth() } // Provided in platform modules
+    single<FirebaseDatabaseInterface> { createFirebaseDatabase() } // Provided in platform modules
+
 
     // Common singletons
     singleOf(::TokenManager)
-    singleOf(::NavigationManager)
 
     // Provide a default CoroutineContext for ViewModels
     single<CoroutineContext> { Dispatchers.Main }

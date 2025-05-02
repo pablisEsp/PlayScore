@@ -21,6 +21,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import org.koin.compose.koinInject
 import ui.components.AuthButton
 import ui.components.AuthDivider
 import ui.components.AuthMessage
@@ -30,13 +32,26 @@ import viewmodel.LoginViewModel
 
 @Composable
 fun LoginScreen(
-    viewModel: LoginViewModel,
-    onRegisterClick: () -> Unit,
+    navController: NavController,
+    viewModel: LoginViewModel = koinInject()
 ) {
-    val email = viewModel.email
-    val password = viewModel.password
-    val isLoading = viewModel.isLoading
-    val loginMessage = viewModel.loginMessage
+    val email by viewModel.email.collectAsState()
+    val password by viewModel.password.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val loginMessage by viewModel.loginMessage.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            navController.navigate("navigation.HomeScreen") {
+                // Use route-based navigation instead of ID-based
+                popUpTo("navigation.LoginScreen") {
+                    inclusive = true
+                }
+            }
+            viewModel.resetLoginState()
+        }
+    }
 
     AppTheme {
         Box(
@@ -51,7 +66,6 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Simplified animation: Apply directly without shouldAnimate
                 AnimatedVisibility(
                     visible = true,
                     enter = fadeIn(
@@ -126,18 +140,17 @@ fun LoginScreen(
 
                         AuthButton(
                             text = "Sign In",
-                            onClick = { viewModel.login() }, // No callback parameter
+                            onClick = { viewModel.login() },
                             isLoading = isLoading,
                             enabled = email.isNotBlank() && password.isNotBlank()
                         )
-
 
                         Spacer(modifier = Modifier.height(16.dp))
 
                         loginMessage?.let { message ->
                             AuthMessage(
                                 message = message,
-                                isError = true  // All messages from LoginViewModel are errors
+                                isError = true
                             )
                         }
 
@@ -160,7 +173,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                TextButton(onClick = onRegisterClick) {
+                TextButton(onClick = { navController.navigate("navigation.RegisterScreen") }) {
                     Text(
                         text = "Don't have an account? Sign Up",
                         style = MaterialTheme.typography.bodyMedium,

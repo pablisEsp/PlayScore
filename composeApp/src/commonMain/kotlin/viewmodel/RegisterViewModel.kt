@@ -1,8 +1,5 @@
 package viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import auth.FirebaseAuthInterface
 import auth.createFirebaseAuth
@@ -12,6 +9,8 @@ import database.FirebaseDatabaseInterface
 import database.createFirebaseDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlin.coroutines.CoroutineContext
@@ -21,96 +20,88 @@ class RegisterViewModel(
     private val auth: FirebaseAuthInterface = createFirebaseAuth(),
     private val database: FirebaseDatabaseInterface = createFirebaseDatabase()
 ) : ViewModel() {
-    var name by mutableStateOf("")
-        private set
+    private val _name = MutableStateFlow("")
+    val name = _name.asStateFlow()
 
-    var email by mutableStateOf("")
-        private set
+    private val _email = MutableStateFlow("")
+    val email = _email.asStateFlow()
 
-    var password by mutableStateOf("")
-        private set
+    private val _password = MutableStateFlow("")
+    val password = _password.asStateFlow()
 
-    var isLoading by mutableStateOf(false)
-        private set
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
 
-    var registerResult by mutableStateOf<String?>(null)
-        private set
+    private val _registerResult = MutableStateFlow<String?>(null)
+    val registerResult = _registerResult.asStateFlow()
 
-    // Replace 'isRegistered' with 'isRegistrationComplete' to match AppNavHost.kt
-    var isRegistrationComplete by mutableStateOf(false)
-        private set
+    private val _isRegistrationComplete = MutableStateFlow(false)
+    val isRegistrationComplete = _isRegistrationComplete.asStateFlow()
 
     fun onNameChanged(value: String) {
-        name = value
+        _name.value = value
     }
 
     fun onEmailChanged(value: String) {
-        email = value
+        _email.value = value
     }
 
     fun onPasswordChanged(value: String) {
-        password = value
+        _password.value = value
     }
 
-    // Remove the onRegisterSuccess callback parameter
     fun register() {
-        if (name.isBlank() || email.isBlank() || password.isBlank()) {
-            registerResult = "All fields are required"
+        if (_name.value.isBlank() || _email.value.isBlank() || _password.value.isBlank()) {
+            _registerResult.value = "All fields are required"
             return
         }
 
-        isLoading = true
-        registerResult = null
+        _isLoading.value = true
+        _registerResult.value = null
 
         CoroutineScope(coroutineContext).launch {
             try {
-                // Create user with email and password
-                val result = auth.createUser(email, password)
+                val result = auth.createUser(_email.value, _password.value)
 
                 if (result.success) {
-                    // Update user profile with display name
-                    auth.updateUserProfile(name)
+                    auth.updateUserProfile(_name.value)
 
-                    // Save additional user data to Realtime Database
                     result.userId?.let { uid ->
                         val userData = User(
                             id = uid,
-                            name = name,
-                            email = email,
+                            name = _name.value,
+                            email = _email.value,
                             globalRole = UserRole.USER,
-                            createdAt = Clock.System.now().toString(), // ISO-8601 format
+                            createdAt = Clock.System.now().toString()
                         )
 
                         val saveResult = database.saveUserData(userData)
                         if (!saveResult) {
-                            // Log error but don't fail registration
                             println("Warning: Failed to save user data to database")
                         }
                     }
 
-                    isRegistrationComplete = true  // Renamed from isRegistered
-                    registerResult = "Registered successfully"
-                    // No callback call here anymore
+                    _isRegistrationComplete.value = true
+                    _registerResult.value = "Registered successfully"
                 } else {
-                    // Extract more specific error codes if needed
-                    registerResult = when {
+                    _registerResult.value = when {
                         result.errorMessage?.contains("email already in use", ignoreCase = true) == true -> "Email already in use"
                         result.errorMessage?.contains("password is invalid", ignoreCase = true) == true -> "Password should be at least 6 characters"
                         else -> "Registration failed: ${result.errorMessage}"
                     }
-                    isRegistrationComplete = false  // Renamed from isRegistered
+                    _isRegistrationComplete.value = false
                 }
             } catch (e: Exception) {
-                registerResult = "Registration failed: ${e.message}"
-                isRegistrationComplete = false  // Renamed from isRegistered
+                _registerResult.value = "Registration failed: ${e.message}"
+                _isRegistrationComplete.value = false
             } finally {
-                isLoading = false
+                _isLoading.value = false
             }
         }
     }
 
     fun resetRegistrationState() {
-        isRegistrationComplete = false  // Renamed from isRegistered
-        registerResult = null
+        _isRegistrationComplete.value = false
+        _registerResult.value = null
     }
 }

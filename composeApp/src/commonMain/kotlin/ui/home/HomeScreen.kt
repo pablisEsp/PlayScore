@@ -10,18 +10,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController // Import NavController
+import androidx.navigation.compose.navigation // Import navigation functions
+import org.koin.compose.koinInject
 import viewmodel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel
+    navController: NavController,
+    viewModel: HomeViewModel = koinInject()
 ) {
-    val currentUser = viewModel.currentUser
-    val isLoading = viewModel.isLoading
+    val currentUser by viewModel.currentUser.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-
-    // Show loading indicator only while loading
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -29,13 +31,11 @@ fun HomeScreen(
         return
     }
 
-
-    // If not loading but user is still null, something went wrong
     if (currentUser == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Error loading user data")
-                Button(onClick = { viewModel.logout() }) {
+                Button(onClick = { navController.navigate("navigation.LoginScreen") { popUpTo(0) } }) {
                     Text("Return to Login")
                 }
             }
@@ -48,7 +48,12 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("PlayScore") },
                 actions = {
-                    IconButton(onClick = { viewModel.logout() }) { // Remove onLogout() call
+                    IconButton(onClick = {
+                        viewModel.logout()
+                        navController.navigate("navigation.LoginScreen") {
+                            popUpTo(0) // Fallback until startDestinationId is confirmed
+                        }
+                    }) {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
                             contentDescription = "Logout"
@@ -69,7 +74,6 @@ fun HomeScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Welcome message
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -91,7 +95,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "Welcome, ${currentUser.name}!",
+                        text = "Welcome, ${currentUser!!.name}!",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -100,15 +104,15 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = currentUser.email,
+                        text = currentUser!!.email,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    if (currentUser.teamMembership?.teamId != null) {
+                    if (currentUser!!.teamMembership?.teamId != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Team Role: ${currentUser.teamMembership.role}",
+                            text = "Team Role: ${currentUser!!.teamMembership!!.role}",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -116,7 +120,6 @@ fun HomeScreen(
                 }
             }
 
-            // User stats
             currentUser?.stats?.let { stats ->
                 Card(
                     modifier = Modifier
@@ -134,9 +137,9 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -145,9 +148,9 @@ fun HomeScreen(
                             StatItem(label = "Goals", value = stats.goals.toString())
                             StatItem(label = "Assists", value = stats.assists.toString())
                         }
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -158,8 +161,7 @@ fun HomeScreen(
                     }
                 }
             }
-            
-            // Placeholder for future content
+
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "More features coming soon!",

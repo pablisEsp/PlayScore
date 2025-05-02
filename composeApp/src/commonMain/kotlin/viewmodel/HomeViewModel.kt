@@ -1,87 +1,99 @@
 package viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import auth.FirebaseAuthInterface
 import auth.createFirebaseAuth
 import data.TokenManager
 import data.model.User
 import database.FirebaseDatabaseInterface
 import database.createFirebaseDatabase
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlin.coroutines.CoroutineContext
 
 class HomeViewModel(
-    private val coroutineContext: CoroutineContext = Dispatchers.Main,
     private val auth: FirebaseAuthInterface = createFirebaseAuth(),
     private val database: FirebaseDatabaseInterface = createFirebaseDatabase(),
     private val tokenManager: TokenManager
 ) : ViewModel() {
-    var currentUser by mutableStateOf<User?>(null)
-        private set
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser = _currentUser.asStateFlow()
 
-    var isLoading by mutableStateOf(true)
-        private set
-
-    var isLoggedIn by mutableStateOf(true)
-        private set
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
 
     init {
-        loadCurrentUser()
+        viewModelScope.launch(Dispatchers.IO) {
+            loadCurrentUser()
+        }
     }
 
-    private fun loadCurrentUser() {
-        // First, try to get user from TokenManager
-        val savedUser = tokenManager.getValidatedUser()
-        if (savedUser != null) {
-            currentUser = savedUser
-            isLoading = false
-            return
-        }
+    private suspend fun loadCurrentUser() {
+        try {
+            // First try TokenManager
+            val savedUser = tokenManager.getValidatedUser()
+            if (savedUser != null) {
+                withContext(Dispatchers.Main) {
+                    _currentUser.value = savedUser
+                    _isLoading.value = false
+                }
+                return
+            }
 
-        val authUser = auth.getCurrentUser() ?: run {
-            isLoading = false
-            isLoggedIn = false
-            return
-        }
+            // Then check Firebase auth
+            val authUser = auth.getCurrentUser()
+            if (authUser == null) {
+                withContext(Dispatchers.Main) {
+                    _isLoading.value = false
+                }
+                return
+            }
 
-        CoroutineScope(coroutineContext).launch {
-            try {
-                withTimeout(10000) { // 10 second timeout
-                    val userData = database.getUserData(authUser.uid)
-                    currentUser = userData
-                    isLoggedIn = userData != null
+            // Load user data with a timeout
+            withTimeout(10000) {
+                val userData = database.getUserData(authUser.uid)
 
-                    // Save to token manager if found
+                withContext(Dispatchers.Main) {
                     if (userData != null) {
-                        tokenManager.saveAuthData(
-                            token = auth.getIdToken() ?: "",
-                            user = userData
+                        tokenManager.saveAuthData(auth.getIdToken() ?: "", userData)
+                        _currentUser.value = userData
+                    } else {
+                        _currentUser.value = User(
+                            id = authUser.uid,
+                            name = authUser.displayName ?: "User",
+                            email = authUser.email ?: ""
                         )
                     }
+                    _isLoading.value = false
                 }
-            } catch (e: Exception) {
-                // Create minimal user as fallback
-                currentUser = User(
-                    id = authUser.uid,
-                    name = authUser.displayName ?: "User",
-                    email = authUser.email ?: ""
-                )
-            } finally {
-                isLoading = false
+            }
+        } catch (e: Exception) {
+            println("ERROR loading user: ${e.message}")
+            auth.getCurrentUser()?.let { authUser ->
+                withContext(Dispatchers.Main) {
+                    _currentUser.value = User(
+                        id = authUser.uid,
+                        name = authUser.displayName ?: "User",
+                        email = authUser.email ?: ""
+                    )
+                    _isLoading.value = false
+                }
             }
         }
     }
 
     fun logout() {
-        auth.signOut()
-        tokenManager.clearAuthData() // Make sure to clear saved data
-        currentUser = null
-        isLoggedIn = false
+        viewModelScope.launch {
+            auth.signOut()
+            tokenManager.clearAuthData()
+            withContext(Dispatchers.Main) {
+                _currentUser.value = null
+            }
+        }
     }
 }
