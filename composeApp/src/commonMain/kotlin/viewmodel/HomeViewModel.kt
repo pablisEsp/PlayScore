@@ -2,12 +2,12 @@ package viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import auth.FirebaseAuthInterface
-import auth.createFirebaseAuth
 import data.TokenManager
 import data.model.User
-import database.FirebaseDatabaseInterface
-import database.createFirebaseDatabase
+import firebase.auth.FirebaseAuthInterface
+import firebase.auth.createFirebaseAuth
+import firebase.database.FirebaseDatabaseInterface
+import firebase.database.createFirebaseDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.MutableStateFlow

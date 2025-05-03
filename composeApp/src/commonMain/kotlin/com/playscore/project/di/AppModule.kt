@@ -1,10 +1,11 @@
 package com.playscore.project.di
 
-import auth.FirebaseAuthInterface
-import auth.createFirebaseAuth
+
 import data.TokenManager
-import database.FirebaseDatabaseInterface
-import database.createFirebaseDatabase
+import firebase.auth.FirebaseAuthInterface
+import firebase.auth.createFirebaseAuth
+import firebase.database.FirebaseDatabaseInterface
+import firebase.database.createFirebaseDatabase
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf

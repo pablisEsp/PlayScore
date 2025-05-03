@@ -112,6 +112,8 @@ kotlin {
             // Koin for desktop
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
+
+            implementation("org.slf4j:slf4j-simple:1.7.36")
         }
     }
 }

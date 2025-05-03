@@ -1,4 +1,4 @@
-package database
+package firebase.database
 
 import data.model.User
 

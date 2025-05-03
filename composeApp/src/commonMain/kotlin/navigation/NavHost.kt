@@ -10,7 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import auth.FirebaseAuthInterface
+import firebase.auth.FirebaseAuthInterface
 import org.koin.compose.koinInject
 import ui.home.HomeScreen
 import ui.login.LoginScreen

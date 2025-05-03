@@ -1,8 +1,5 @@
 package firebase.auth
 
-import auth.AuthResult
-import auth.FirebaseAuthInterface
-import auth.UserInfo
 import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.auth.FirebaseAuth as AndroidFirebaseAuth
@@ -50,8 +47,8 @@ class FirebaseAuthAndroid : FirebaseAuthInterface {
         return firebaseAuth.currentUser?.let { user ->
             UserInfo(
                 uid = user.uid,
-                displayName = user.displayName,
-                email = user.email
+                displayName = user.displayName.toString(),
+                email = user.email.toString()
             )
         }
     }
@@ -65,4 +62,8 @@ class FirebaseAuthAndroid : FirebaseAuthInterface {
         val firebaseUser = firebaseAuth.currentUser
         return firebaseUser?.getIdToken(false)?.result?.token ?: ""
     }
+}
+
+actual fun createFirebaseAuth(): FirebaseAuthInterface {
+    return FirebaseAuthAndroid()
 }

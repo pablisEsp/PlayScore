@@ -1,16 +1,4 @@
-package auth
-
-data class AuthResult(
-    val success: Boolean,
-    val userId: String? = null,
-    val errorMessage: String? = null
-)
-
-data class UserInfo(
-    val uid: String,
-    val displayName: String? = null,
-    val email: String? = null
-)
+package firebase.auth
 
 interface FirebaseAuthInterface {
     suspend fun createUser(email: String, password: String): AuthResult
@@ -20,3 +8,6 @@ interface FirebaseAuthInterface {
     fun signOut()
     fun getIdToken(): String
 }
+
+// This expect/actual pattern helps with platform-specific implementations
+expect fun createFirebaseAuth(): FirebaseAuthInterface

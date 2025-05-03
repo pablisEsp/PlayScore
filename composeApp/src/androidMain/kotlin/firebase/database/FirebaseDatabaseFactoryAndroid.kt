@@ -1,4 +1,4 @@
-package database
+package firebase.database
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
@@ -8,6 +8,7 @@ import data.model.TeamRole
 import data.model.User
 import data.model.UserRole
 import data.model.UserStats
+import firebase.database.FirebaseDatabaseInterface
 import java.util.Date
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -170,4 +171,8 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                 continuation.resume(false)
             }
     }
+}
+
+actual fun createFirebaseDatabase(): FirebaseDatabaseInterface {
+    return FirebaseDatabaseAndroid()
 }
