@@ -23,11 +23,6 @@ fun AppNavHost(
     val navController: NavHostController = rememberNavController()
     var startDestination by remember { mutableStateOf<Any>(LoginScreen) }
 
-    // Debug the NavGraph
-    LaunchedEffect(navController) {
-        println("NavGraph startDestinationId: ${navController.graph.startDestinationId}")
-    }
-
     // Check if user is logged in to determine start destination
     LaunchedEffect(Unit) {
         if (firebaseAuth.getCurrentUser() != null) {
