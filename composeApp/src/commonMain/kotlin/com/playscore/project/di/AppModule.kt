@@ -21,7 +21,6 @@ val appModule = module {
     single<FirebaseAuthInterface> { createFirebaseAuth() } // Provided in platform modules
     single<FirebaseDatabaseInterface> { createFirebaseDatabase() } // Provided in platform modules
 
-
     // Common singletons
     singleOf(::TokenManager)
 

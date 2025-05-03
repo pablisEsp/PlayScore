@@ -8,6 +8,3 @@ interface FirebaseAuthInterface {
     fun signOut()
     fun getIdToken(): String
 }
-
-// This expect/actual pattern helps with platform-specific implementations
-expect fun createFirebaseAuth(): FirebaseAuthInterface

@@ -16,9 +16,9 @@ import kotlinx.datetime.Clock
 import kotlin.coroutines.CoroutineContext
 
 class RegisterViewModel(
-    private val coroutineContext: CoroutineContext = Dispatchers.Main,
-    private val auth: FirebaseAuthInterface = createFirebaseAuth(),
-    private val database: FirebaseDatabaseInterface = createFirebaseDatabase()
+    private val coroutineContext: CoroutineContext,
+    private val auth: FirebaseAuthInterface,
+    private val database: FirebaseDatabaseInterface
 ) : ViewModel() {
     private val _name = MutableStateFlow("")
     val name = _name.asStateFlow()
