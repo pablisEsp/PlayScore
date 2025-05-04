@@ -39,18 +39,33 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         }
     }
 
+    private suspend fun ensureValidToken(): String {
+        val token = auth.getIdToken()
+        if (token.isBlank()) {
+            println("No valid token available for API request")
+        }
+        return token
+    }
+
     override suspend fun getUserData(uid: String?): User? {
         val userId = uid ?: auth.getCurrentUser()?.uid ?: return null
 
         try {
             println("Making GET request to $apiBaseUrl/user/getOne/$userId")
+
+            // Get a fresh token before making the request
+            val token = ensureValidToken()
+            if (token.isBlank()) {
+                println("Unable to get valid token, aborting request")
+                return null
+            }
+
             val response = client.get("$apiBaseUrl/user/getOne/$userId") {
-                val idToken = auth.getIdToken()
                 headers {
-                    println("Token: $idToken")
-                    append("Authorization", "Bearer $idToken")
+                    append("Authorization", "Bearer $token")
                 }
             }
+
             println("Response status: ${response.status}")
             if (response.status.isSuccess()) {
                 val user = response.body<User>()
@@ -64,6 +79,7 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
             return null
         }
     }
+
 
     override suspend fun updateUserData(uid: String, updates: Map<String, Any>): Boolean {
         try {

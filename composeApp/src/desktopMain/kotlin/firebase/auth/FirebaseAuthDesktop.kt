@@ -10,6 +10,8 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import util.EnvironmentConfig
 
@@ -27,6 +29,14 @@ data class AuthResponseBody(
     val errorMessage: String? = null,
     val email: String? = null,
     val displayName: String? = null
+)
+
+@Serializable
+private data class PersistedAuthState(
+    val userId: String,
+    val email: String,
+    val displayName: String,
+    val tokenExpiry: Long
 )
 
 class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
@@ -47,6 +57,14 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
     private val apiUrl = EnvironmentConfig.AUTH_API_URL
     private var currentUser: UserInfo? = null
     private var idToken: String? = null
+    private var tokenExpiry: Long = 0
+
+    // Secure storage keys
+    private val KEY_AUTH_STATE = "auth_state"
+    private val KEY_TOKEN = "auth_token"
+
+    // Secure storage implementation
+    private val secureStorage = createSecureStorage()
 
     // Singleton pattern implementation
     companion object {
@@ -55,8 +73,84 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
 
         fun getInstance(): FirebaseAuthDesktop {
             return instance ?: synchronized(this) {
-                instance ?: FirebaseAuthDesktop().also { instance = it }
+                instance ?: FirebaseAuthDesktop().also {
+                    instance = it
+                }
             }
+        }
+    }
+
+    init {
+        // Load auth state when initializing the instance
+        loadAuthState()
+    }
+
+    private fun saveAuthState() {
+        try {
+            val currentUser = this.currentUser ?: return
+
+            // Save user info
+            val authState = PersistedAuthState(
+                userId = currentUser.uid,
+                email = currentUser.email,
+                displayName = currentUser.displayName,
+                tokenExpiry = tokenExpiry
+            )
+
+            val json = Json.encodeToString(authState)
+            secureStorage.saveString(KEY_AUTH_STATE, json)
+
+            // Save token separately for added security
+            idToken?.let { token ->
+                secureStorage.saveString(KEY_TOKEN, token)
+            }
+
+            println("Auth state saved securely")
+        } catch (e: Exception) {
+            println("Failed to save auth state: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadAuthState() {
+        try {
+            // Load auth state
+            val json = secureStorage.getString(KEY_AUTH_STATE) ?: run {
+                println("No saved auth state found")
+                return
+            }
+
+            val authState = Json.decodeFromString<PersistedAuthState>(json)
+
+            // Load token separately
+            val token = secureStorage.getString(KEY_TOKEN)
+
+            // Check if token is still valid (has not expired)
+            val currentTimeMillis = System.currentTimeMillis()
+            if (authState.tokenExpiry > currentTimeMillis && token != null) {
+                currentUser = UserInfo(
+                    uid = authState.userId,
+                    email = authState.email,
+                    displayName = authState.displayName
+                )
+                idToken = token
+                tokenExpiry = authState.tokenExpiry
+
+                println("Auth state loaded successfully. Token valid for ${(tokenExpiry - currentTimeMillis) / 1000} more seconds")
+            } else {
+                println("Saved token has expired, will try to refresh")
+                // We'll keep the user info but mark token as expired
+                currentUser = UserInfo(
+                    uid = authState.userId,
+                    email = authState.email,
+                    displayName = authState.displayName
+                )
+                idToken = null
+                tokenExpiry = 0
+            }
+        } catch (e: Exception) {
+            println("Failed to load auth state: ${e.message}")
+            e.printStackTrace()
         }
     }
 
@@ -80,7 +174,12 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
                     displayName = responseBody.displayName ?: ""
                 )
                 idToken = responseBody.token
+                // Set token expiry to 1 hour from now
+                tokenExpiry = System.currentTimeMillis() + 3600000
                 println("Registration successful, token received: ${idToken?.take(10)}...")
+
+                // Save auth state to persist between app restarts
+                saveAuthState()
 
                 AuthResult(success = true, userId = responseBody.userId)
             } else {
@@ -118,8 +217,13 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
                     displayName = responseBody.displayName ?: ""
                 )
                 idToken = responseBody.token
+                // Set token expiry to 1 hour from now
+                tokenExpiry = System.currentTimeMillis() + 3600000
                 println("Login successful, token received: ${idToken?.take(10)}...")
                 println("Current user set to: $currentUser")
+
+                // Save auth state to persist between app restarts
+                saveAuthState()
 
                 AuthResult(success = true, userId = responseBody.userId)
             } else {
@@ -133,6 +237,40 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
             println("Login exception: ${e.message}")
             e.printStackTrace()
             AuthResult(success = false, errorMessage = "Network error: ${e.message}")
+        }
+    }
+
+    private suspend fun refreshToken(): Boolean {
+        // Only try to refresh if we have a token to refresh
+        if (currentUser == null) return false
+
+        try {
+            println("Attempting to refresh token for user: ${currentUser?.email}")
+
+            val response = withContext(Dispatchers.IO) {
+                client.post("$apiUrl/refresh-token") {
+                    contentType(ContentType.Application.Json)
+                    // Send the current token in the Authorization header
+                    header("Authorization", "Bearer $idToken")
+                }
+            }
+
+            val responseBody = response.body<AuthResponseBody>()
+            if (responseBody.success && responseBody.token != null) {
+                idToken = responseBody.token
+                // Set new expiry time - 1 hour from now
+                tokenExpiry = System.currentTimeMillis() + 3600000
+                saveAuthState()
+                println("Token refreshed successfully")
+                return true
+            } else {
+                println("Token refresh failed: ${responseBody.errorMessage}")
+                return false
+            }
+        } catch (e: Exception) {
+            println("Token refresh exception: ${e.message}")
+            e.printStackTrace()
+            return false
         }
     }
 
@@ -158,6 +296,9 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
             if (responseBody.success) {
                 currentUser = currentUser?.copy(displayName = displayName)
                 println("Profile updated successfully")
+
+                // Save updated user info
+                saveAuthState()
             } else {
                 println("Failed to update profile: ${responseBody.errorMessage}")
             }
@@ -176,13 +317,37 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
         println("Signing out user: ${currentUser?.email}")
         currentUser = null
         idToken = null
+        tokenExpiry = 0
+
+        // Delete the saved auth state
+        secureStorage.clear()
+        println("Auth state cleared")
     }
 
     override suspend fun getIdToken(): String {
         println("getIdToken called, token ${if (idToken == null) "is null" else "exists"}")
+
+        // Check if token has expired or is about to expire
+        if (idToken != null) {
+            val currentTime = System.currentTimeMillis()
+            val timeRemaining = tokenExpiry - currentTime
+
+            // If token has less than 5 minutes remaining, refresh it
+            if (timeRemaining < 300000) {
+                println("Token expired or about to expire, attempting refresh")
+                if (!refreshToken()) {
+                    println("Token refresh failed, user will need to login again")
+                    // Clear token but keep user info
+                    idToken = null
+                }
+            }
+        } else if (currentUser != null) {
+            // We have user info but no token, try to refresh
+            refreshToken()
+        }
+
         return idToken ?: ""
     }
-
 }
 
 actual fun createFirebaseAuth(): FirebaseAuthInterface = FirebaseAuthDesktop.getInstance()
