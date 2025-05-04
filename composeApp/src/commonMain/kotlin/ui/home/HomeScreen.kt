@@ -1,18 +1,48 @@
 package ui.home
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController // Import NavController
+import androidx.navigation.NavController
 import org.koin.compose.koinInject
 import viewmodel.HomeViewModel
+
+data class PostModel(
+    val id: String,
+    val author: String,
+    val content: String,
+    val likes: Int
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,171 +51,126 @@ fun HomeScreen(
     viewModel: HomeViewModel = koinInject()
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
 
-    if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-    if (currentUser == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Error loading user data")
-                Button(onClick = { navController.navigate("navigation.LoginScreen") { popUpTo(0) } }) {
-                    Text("Return to Login")
-                }
-            }
-        }
-        return
+    // Sample posts for the feed
+    val posts = remember {
+        listOf(
+            PostModel("1", "John Doe", "Just scored a hat-trick in the local tournament! #football #victory", 42),
+            PostModel("2", "Jane Smith", "Our team is looking for new players. DM if interested! #recruiting #football", 28),
+            PostModel("3", "Coach Mike", "Training session analysis: we need to work on our defensive positioning", 35),
+            PostModel("4", "Sarah Johnson", "Check out this amazing goal from yesterday's match! #highlights", 56),
+            PostModel("5", "Team Manager", "New equipment arriving next week! #excited", 21)
+        )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PlayScore") },
-                actions = {
-                    IconButton(onClick = {
-                        viewModel.logout()
-                        navController.navigate("navigation.LoginScreen") {
-                            popUpTo(0) // Fallback until startDestinationId is confirmed
-                        }
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Logout"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                title = { Text("Feed") }
             )
         }
     ) { paddingValues ->
-        Column(
+        if (currentUser == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Loading feed...")
+            }
+            return@Scaffold
+        }
+
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(
+            item {
+                Text(
+                    "Welcome back, ${currentUser?.name}!",
                     modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "User",
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    style = MaterialTheme.typography.titleMedium
+                )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "Welcome, ${currentUser!!.name}!",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = currentUser!!.email,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (currentUser!!.teamMembership?.teamId != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Team Role: ${currentUser!!.teamMembership!!.role}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            currentUser?.stats?.let { stats ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Your Stats",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            StatItem(label = "Matches", value = stats.matchesPlayed.toString())
-                            StatItem(label = "Goals", value = stats.goals.toString())
-                            StatItem(label = "Assists", value = stats.assists.toString())
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            StatItem(label = "MVPs", value = stats.mvps.toString())
-                            StatItem(label = "Rating", value = stats.averageRating.toString())
-                        }
-                    }
-                }
+            items(posts) { post ->
+                PostCard(post)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "More features coming soon!",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
+            item {
+                Spacer(modifier = Modifier.height(72.dp)) // Space for bottom nav bar
+            }
         }
     }
 }
 
 @Composable
-private fun StatItem(label: String, value: String) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+fun PostCard(post: PostModel) {
+    var liked by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Author info
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Author",
+                    modifier = Modifier.align(Alignment.CenterStart)
+                )
+                Text(
+                    text = post.author,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(start = 36.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Post content
+            Text(
+                text = post.content,
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Post interactions
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                IconButton(
+                    onClick = { liked = !liked },
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(
+                        imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = "Like",
+                        tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Text(
+                    text = "${if (liked) post.likes + 1 else post.likes} likes",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                )
+            }
+        }
     }
 }
