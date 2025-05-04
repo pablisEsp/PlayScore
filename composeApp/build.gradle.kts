@@ -1,3 +1,4 @@
+import org.gradle.kotlin.dsl.implementation
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -114,6 +115,8 @@ kotlin {
             implementation(libs.koin.compose)
 
             implementation("org.slf4j:slf4j-simple:1.7.36")
+            implementation("io.ktor:ktor-client-logging:${libs.versions.ktor.get()}")
+
         }
     }
 }

@@ -58,9 +58,17 @@ class FirebaseAuthAndroid : FirebaseAuthInterface {
     }
 
 
-    override fun getIdToken(): String {
-        val firebaseUser = firebaseAuth.currentUser
-        return firebaseUser?.getIdToken(false)?.result?.token ?: ""
+    override suspend fun getIdToken(): String {
+        val firebaseUser = firebaseAuth.currentUser ?: return ""
+        return try {
+            firebaseUser.getIdToken(false).await().token ?: run {
+                println("Warning: No token retrieved for user")
+                ""
+            }
+        } catch (e: Exception) {
+            println("Error retrieving ID token: ${e.message}")
+            ""
+        }
     }
 }
 

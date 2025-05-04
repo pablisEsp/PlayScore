@@ -19,15 +19,17 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         }
     }
 
-    private val apiBaseUrl = EnvironmentConfig.getEnv("DATABASE_API_URL") ?: "http://localhost:3000/api/database"
+    private val apiBaseUrl = EnvironmentConfig.getEnv("DATABASE_API_URL") ?: "http://localhost:3000/api"
 
     override suspend fun saveUserData(userData: User): Boolean {
+        // You may want to add a POST /user endpoint on your server for this to work
         try {
+            val idToken = auth.getIdToken()
             val response = client.post("$apiBaseUrl/user") {
                 contentType(ContentType.Application.Json)
                 setBody(userData)
                 headers {
-                    append("Authorization", "Bearer ${auth.getIdToken()}")
+                    append("Authorization", "Bearer $idToken")
                 }
             }
             return response.status.isSuccess()
@@ -41,15 +43,21 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         val userId = uid ?: auth.getCurrentUser()?.uid ?: return null
 
         try {
-            val response = client.get("$apiBaseUrl/user/$userId") {
+            println("Making GET request to $apiBaseUrl/user/getOne/$userId")
+            val response = client.get("$apiBaseUrl/user/getOne/$userId") {
+                val idToken = auth.getIdToken()
                 headers {
-                    append("Authorization", "Bearer ${auth.getIdToken()}")
+                    println("Token: $idToken")
+                    append("Authorization", "Bearer $idToken")
                 }
             }
-
+            println("Response status: ${response.status}")
             if (response.status.isSuccess()) {
-                return response.body<User>()
+                val user = response.body<User>()
+                println("User data from response: $user")
+                return user
             }
+            println("Response not successful: ${response.status}")
             return null
         } catch (e: Exception) {
             println("Error getting user data: ${e.message}")
@@ -59,11 +67,12 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
 
     override suspend fun updateUserData(uid: String, updates: Map<String, Any>): Boolean {
         try {
-            val response = client.patch("$apiBaseUrl/user/$uid") {
+            val response = client.patch("$apiBaseUrl/user/update/$uid") {
                 contentType(ContentType.Application.Json)
                 setBody(updates)
+                val idToken = auth.getIdToken()
                 headers {
-                    append("Authorization", "Bearer ${auth.getIdToken()}")
+                    append("Authorization", "Bearer $idToken")
                 }
             }
             return response.status.isSuccess()
@@ -75,9 +84,10 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
 
     override suspend fun deleteUser(uid: String): Boolean {
         try {
-            val response = client.delete("$apiBaseUrl/user/$uid") {
+            val idToken = auth.getIdToken()
+            val response = client.delete("$apiBaseUrl/user/delete/$uid") {
                 headers {
-                    append("Authorization", "Bearer ${auth.getIdToken()}")
+                    append("Authorization", "Bearer $idToken")
                 }
             }
             return response.status.isSuccess()

@@ -6,5 +6,5 @@ interface FirebaseAuthInterface {
     suspend fun updateUserProfile(displayName: String)
     fun getCurrentUser(): UserInfo?
     fun signOut()
-    fun getIdToken(): String
+    suspend fun getIdToken(): String
 }
