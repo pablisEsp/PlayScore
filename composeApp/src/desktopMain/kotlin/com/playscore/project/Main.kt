@@ -1,6 +1,8 @@
 package com.playscore.project
 
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import com.playscore.project.di.appModule
 import com.playscore.project.di.desktopPlatformModule
@@ -14,7 +16,11 @@ fun main() {
 
 
     application {
-        Window(onCloseRequest = ::exitApplication, title = "PlayScore") {
+        Window(
+            onCloseRequest = ::exitApplication,
+            title = "PlayScore",
+            state = WindowState(placement = WindowPlacement.Maximized)
+        ) {
             App()
         }
     }

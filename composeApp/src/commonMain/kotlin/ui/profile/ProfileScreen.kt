@@ -1,20 +1,13 @@
 package ui.profile
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import org.koin.compose.koinInject
 import viewmodel.HomeViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +71,50 @@ fun ProfileScreen(
                 text = currentUser?.email ?: "",
                 style = MaterialTheme.typography.bodyLarge
             )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Settings button
+            Button(
+                onClick = { navController.navigate("navigation.SettingsScreen") },
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Settings")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    viewModel.logout()
+                    navController.navigate("navigation.LoginScreen") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Default.ExitToApp,
+                    contentDescription = "Logout",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Log out")
+            }
         }
     }
 }

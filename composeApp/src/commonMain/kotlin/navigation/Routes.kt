@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.rounded.Face
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 
@@ -28,7 +29,7 @@ data object SearchScreen {
 
 @Serializable
 data object TeamScreen {
-    val icon: ImageVector = Icons.Default.Person
+    val icon: ImageVector = Icons.Rounded.Face
     val title: String = "Team"
 }
 

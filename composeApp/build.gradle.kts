@@ -10,8 +10,10 @@ plugins {
     alias(libs.plugins.composeCompiler)
     kotlin("plugin.serialization") version "2.1.0"
 
-    // Add the Google services Gradle plugin
+    // Google services Gradle plugin
     id("com.google.gms.google-services")
+
+    //id("dev.icerock.mobile.multiplatform-resources")
 }
 
 kotlin {
@@ -64,6 +66,10 @@ kotlin {
             // For Task.await() extension
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 
+            //implementation("androidx.core:core-splashscreen:1.0.1")
+
+            //Google sign-in
+            //implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
 
 
@@ -94,6 +100,9 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
 
+            // Translation
+            //implementation("dev.icerock.moko:resources:0.24.5")
+            //implementation("dev.icerock.moko:resources-compose:0.24.5")
 
 
 
@@ -116,6 +125,9 @@ kotlin {
 
             implementation("org.slf4j:slf4j-simple:1.7.36")
             implementation("io.ktor:ktor-client-logging:${libs.versions.ktor.get()}")
+
+            // For Google OAuth on desktop
+            //implementation("com.google.api-client:google-api-client:2.7.2")
 
         }
     }

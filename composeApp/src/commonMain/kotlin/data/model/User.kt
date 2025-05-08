@@ -11,6 +11,7 @@ data class User(
     val teamMembership: TeamMembership? = null,
     val profileImage: String = "",
     val stats: UserStats = UserStats(),
+    //val preferredLanguage : String = "en",
     val createdAt: String = ""
 )
 
