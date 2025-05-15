@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -124,6 +125,15 @@ fun RegisterScreen(
                             onValueChange = viewModel::onNameChanged,
                             label = "Full Name",
                             leadingIcon = Icons.Filled.Person
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        AuthTextField(
+                            value = name,
+                            onValueChange = viewModel::onUsernameChanged,
+                            label = "Username",
+                            leadingIcon = Icons.Filled.Face
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))

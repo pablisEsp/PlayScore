@@ -1,175 +1,292 @@
 package ui.home
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import data.model.Post
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import ui.components.RefreshableContainer
+import ui.components.rememberRefreshHandler
+import utils.isDesktop
 import viewmodel.HomeViewModel
+import viewmodel.PostViewModel
 
-data class PostModel(
-    val id: String,
-    val author: String,
-    val content: String,
-    val likes: Int
-)
+@Composable
+fun NewPostDialog(onDismiss: () -> Unit, onPostCreated: (content: String) -> Unit) {
+    var postContent by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Create New Post") },
+        text = {
+            OutlinedTextField(
+                value = postContent,
+                onValueChange = { postContent = it },
+                label = { Text("Post content") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onPostCreated(postContent) },
+                enabled = postContent.isNotBlank()
+            ) {
+                Text("Post")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun LikeButton(
+    isLiked: Boolean,
+    likeCount: Int,
+    onLikeClicked: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier
+            .padding(vertical = 4.dp)
+    ) {
+        IconButton(onClick = onLikeClicked) {
+            Icon(
+                imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                contentDescription = if (isLiked) "Unlike" else "Like",
+                tint = if (isLiked) Color.Red else LocalContentColor.current,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Text(
+            text = likeCount.toString(),
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PostCard(
+    post: Post,
+    isLiked: Boolean,
+    onLikeClicked: () -> Unit,
+    onPostClicked: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        onClick = onPostClicked
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Author info with username style
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Display name
+                Text(
+                    text = post.authorName.ifEmpty { "Unknown User" },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                // Add a dot separator
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "•",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Display username with @ symbol
+                Text(
+                    text = "@${post.authorName.lowercase().replace(" ", "_")}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Post content
+            Text(
+                text = post.content,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 5,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Like button with count
+            LikeButton(
+                isLiked = isLiked,
+                likeCount = post.likeCount,
+                onLikeClicked = onLikeClicked
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
-    viewModel: HomeViewModel = koinInject()
+    homeViewModel: HomeViewModel = koinInject(),
+    postViewModel: PostViewModel = koinInject()
 ) {
-    val currentUser by viewModel.currentUser.collectAsState()
+    val currentUserSnapshot by homeViewModel.currentUser.collectAsState()
+    val posts by postViewModel.posts.collectAsState(emptyList())
+    val isLoading by postViewModel.isLoading.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    var showNewPostDialog by remember { mutableStateOf(false) }
 
-    // Sample posts for the feed
-    val posts = remember {
-        listOf(
-            PostModel("1", "John Doe", "Just scored a hat-trick in the local tournament! #football #victory", 42),
-            PostModel("2", "Jane Smith", "Our team is looking for new players. DM if interested! #recruiting #football", 28),
-            PostModel("3", "Coach Mike", "Training session analysis: we need to work on our defensive positioning", 35),
-            PostModel("4", "Sarah Johnson", "Check out this amazing goal from yesterday's match! #highlights", 56),
-            PostModel("5", "Team Manager", "New equipment arriving next week! #excited", 21)
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoading) {
+        if (!isLoading) isRefreshing = false
+    }
+
+    val refreshHandler = rememberRefreshHandler(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            postViewModel.getAllPosts(forceRefresh = true)
+        }
+    )
+
+    LaunchedEffect(Unit) {
+        postViewModel.getAllPosts()
+    }
+
+    if (showNewPostDialog) {
+        NewPostDialog(
+            onDismiss = { showNewPostDialog = false },
+            onPostCreated = { content: String ->
+                postViewModel.createPost(content)
+                showNewPostDialog = false
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Post created!")
+                }
+                postViewModel.getAllPosts(forceRefresh = true)
+            }
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Feed") }
+                title = { Text("Feed") },
+                actions = {
+                    if (isDesktop()) {
+                        IconButton(onClick = { refreshHandler.refresh() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh"
+                            )
+                        }
+                    }
+                }
             )
-        }
-    ) { paddingValues ->
-        if (currentUser == null) {
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showNewPostDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = "New post")
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { innerPadding ->
+        val localCurrentUser = currentUserSnapshot
+
+        if (localCurrentUser == null) {
             Box(
-                modifier = Modifier
+                Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Loading feed...")
+                Text("Loading feed…")
             }
             return@Scaffold
         }
 
-        LazyColumn(
+        if (isLoading && !isRefreshing) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+
+        RefreshableContainer(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(innerPadding),
+            refreshHandler = refreshHandler
         ) {
-            item {
-                Text(
-                    "Welcome back, ${currentUser?.name}!",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                Divider(modifier = Modifier.padding(horizontal = 16.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            items(posts) { post ->
-                PostCard(post)
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(72.dp)) // Space for bottom nav bar
-            }
-        }
-    }
-}
-
-@Composable
-fun PostCard(post: PostModel) {
-    var liked by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Author info
-            Box(
-                modifier = Modifier.fillMaxWidth(),
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 72.dp) // For FAB
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Author",
-                    modifier = Modifier.align(Alignment.CenterStart)
-                )
-                Text(
-                    text = post.author,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(start = 36.dp)
-                )
-            }
+                item {
+                    Text(
+                        text = "Welcome back, ${localCurrentUser.name}!",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Divider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Post content
-            Text(
-                text = post.content,
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Post interactions
-            Box(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                IconButton(
-                    onClick = { liked = !liked },
-                    modifier = Modifier.align(Alignment.CenterStart)
-                ) {
-                    Icon(
-                        imageVector = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                items(posts) { post ->
+                    PostCard(
+                        post = post,
+                        isLiked = post.isLikedByCurrentUser,
+                        onLikeClicked = { postViewModel.likePost(post.id) },
+                        onPostClicked = {
+                            navController.navigate("post/${post.id}")
+                        }
                     )
                 }
 
-                Text(
-                    text = "${if (liked) post.likes + 1 else post.likes} likes",
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 8.dp)
-                )
+                if (posts.isEmpty() && !isLoading) {
+                    item {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No posts yet. Create one!")
+                        }
+                    }
+                }
             }
         }
     }

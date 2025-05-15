@@ -7,6 +7,7 @@ data class User(
     val id: String,
     val name: String,
     val email: String,
+    val username: String,
     val globalRole: UserRole = UserRole.USER,
     val teamMembership: TeamMembership? = null,
     val profileImage: String = "",

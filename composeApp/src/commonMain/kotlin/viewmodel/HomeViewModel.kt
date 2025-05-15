@@ -66,7 +66,8 @@ class HomeViewModel(
                         _currentUser.value = User(
                             id = authUser.uid,
                             name = authUser.displayName ?: "User",
-                            email = authUser.email ?: ""
+                            email = authUser.email ?: "",
+                            username = ""
                         )
                     }
                     _isLoading.value = false
@@ -79,7 +80,8 @@ class HomeViewModel(
                     _currentUser.value = User(
                         id = authUser.uid,
                         name = authUser.displayName ?: "User",
-                        email = authUser.email ?: ""
+                        email = authUser.email ?: "",
+                        username = ""
                     )
                     _isLoading.value = false
                 }

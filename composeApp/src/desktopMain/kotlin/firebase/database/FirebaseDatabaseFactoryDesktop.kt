@@ -10,7 +10,7 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
-import util.EnvironmentConfig
+import utils.EnvironmentConfig
 
 class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : FirebaseDatabaseInterface {
     private val client = HttpClient {

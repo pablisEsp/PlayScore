@@ -10,10 +10,8 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import util.EnvironmentConfig
+import utils.EnvironmentConfig
 
 @Serializable
 data class AuthRequestBody(val email: String, val password: String)
