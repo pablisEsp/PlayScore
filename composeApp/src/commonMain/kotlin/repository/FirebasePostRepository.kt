@@ -17,7 +17,15 @@ class FirebasePostRepository(
             println("Fetched ${posts.size} posts from $postsPath")
             val filteredPosts = posts
                 .filter { it.parentPostId.isNullOrEmpty() }
-                .sortedByDescending { it.createdAt.toLongOrNull() ?: 0L }
+                .sortedByDescending {
+                    try {
+                        if (it.createdAt.isNotEmpty())
+                            kotlinx.datetime.Instant.parse(it.createdAt).toEpochMilliseconds()
+                        else 0L
+                    } catch (e: Exception) {
+                        0L
+                    }
+                }
             println("Filtered to ${filteredPosts.size} top-level posts")
             emit(filteredPosts)
         } catch (e: Exception) {

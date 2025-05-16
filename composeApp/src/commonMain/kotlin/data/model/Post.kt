@@ -11,7 +11,7 @@ data class Post(
     val mediaUrls: List<String> = emptyList(),
     val likeCount: Int = 0,
     val parentPostId: String? = null,
-    val createdAt: String = "",
+    val createdAt: String,
     // This could be computed property in your ViewModel
     val isLikedByCurrentUser: Boolean = false
 )

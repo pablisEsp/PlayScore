@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.Post
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import org.koin.compose.koinInject
 import ui.components.RefreshableContainer
 import ui.components.rememberRefreshHandler
@@ -52,6 +54,55 @@ fun NewPostDialog(onDismiss: () -> Unit, onPostCreated: (content: String) -> Uni
             }
         }
     )
+}
+
+@Composable
+fun TimeAgoText(timestamp: String, modifier: Modifier = Modifier) {
+    val timeAgo = remember(timestamp) {
+        calculateTimeAgo(timestamp)
+    }
+
+    Text(
+        text = timeAgo,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.outline,
+        modifier = modifier
+    )
+}
+
+fun calculateTimeAgo(timestamp: String): String {
+    if (timestamp.isBlank()) {
+        return "recently"
+    }
+
+    try {
+        val createdInstant = Instant.parse(timestamp)
+        val now = Clock.System.now()
+        val diffSeconds = (now - createdInstant).inWholeSeconds
+
+        // Handle future timestamps
+        if (diffSeconds < 0) {
+            return "just now"
+        }
+
+        // Time unit constants
+        val SECONDS_IN_MINUTE = 60
+        val SECONDS_IN_HOUR = 60 * SECONDS_IN_MINUTE
+        val SECONDS_IN_DAY = 24 * SECONDS_IN_HOUR
+        val SECONDS_IN_MONTH = 30 * SECONDS_IN_DAY // Approximate
+        val SECONDS_IN_YEAR = 365 * SECONDS_IN_DAY // Approximate
+
+        return when {
+            diffSeconds < SECONDS_IN_MINUTE -> "just now"
+            diffSeconds < SECONDS_IN_HOUR -> "${diffSeconds / SECONDS_IN_MINUTE}m ago"
+            diffSeconds < SECONDS_IN_DAY -> "${diffSeconds / SECONDS_IN_HOUR}h ago"
+            diffSeconds < SECONDS_IN_MONTH -> "${diffSeconds / SECONDS_IN_DAY}d ago"
+            diffSeconds < SECONDS_IN_YEAR -> "${diffSeconds / SECONDS_IN_MONTH}mo ago"
+            else -> "${diffSeconds / SECONDS_IN_YEAR}y ago"
+        }
+    } catch (e: IllegalArgumentException) {
+        return "recently"
+    }
 }
 
 @Composable
@@ -99,30 +150,40 @@ fun PostCard(
         onClick = onPostClicked
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Author info with username style
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Display name
-                Text(
-                    text = post.authorName.ifEmpty { "Unknown User" },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            // Author info row with username and timestamp
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Author info (left side)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Display name
+                    Text(
+                        text = post.authorName.ifEmpty { "Unknown User" },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
-                // Add a dot separator
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "•",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+                    // Add a dot separator
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                // Display username with @ symbol
-                Text(
-                    text = "@${post.authorName.lowercase().replace(" ", "_")}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                    // Display username with @ symbol
+                    Text(
+                        text = "@${post.authorName.lowercase().replace(" ", "_")}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+
+                // Time ago (right side)
+                TimeAgoText(timestamp = post.createdAt)
             }
 
             Spacer(modifier = Modifier.height(8.dp))

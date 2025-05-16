@@ -3,6 +3,7 @@ package firebase.database
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.ServerValue
 import data.model.Like
 import data.model.Post
@@ -14,6 +15,7 @@ import data.model.UserStats
 import firebase.database.FirebaseDatabaseInterface
 import kotlinx.coroutines.tasks.await
 import java.util.Date
+import kotlin.collections.emptyList
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -204,9 +206,22 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         val authorId = childSnapshot.child("authorId").getValue(String::class.java) ?: ""
                         val authorName = childSnapshot.child("authorName").getValue(String::class.java) ?: ""
                         val content = childSnapshot.child("content").getValue(String::class.java) ?: ""
-                        // Add other fields as needed
+                        val mediaUrls = childSnapshot.child("mediaUrls").getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
+                        val likeCount = childSnapshot.child("likeCount").getValue(Int::class.java) ?: 0
+                        val parentPostId = childSnapshot.child("parentPostId").getValue(String::class.java)
+                        val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
 
-                        val post = Post(id, authorId, authorName, content) as T
+                        val post = Post(
+                            id = id,
+                            authorId = authorId,
+                            authorName = authorName,
+                            content = content,
+                            mediaUrls = mediaUrls,
+                            likeCount = likeCount,
+                            parentPostId = parentPostId,
+                            createdAt = createdAt
+                        ) as T
+
                         items.add(post)
                     } else {
                         // Handle other collection types

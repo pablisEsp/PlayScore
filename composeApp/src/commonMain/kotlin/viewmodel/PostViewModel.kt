@@ -92,6 +92,8 @@ class PostViewModel(
                 postRepository.getAllPosts(forceRefresh = forceRefresh).collect { fetchedPosts ->
                     // Process each post to check if it's liked by current user
                     val enhancedPosts = fetchedPosts.map { post ->
+                        println("Post ID: ${post.id}, Timestamp: ${post.createdAt}")
+
                         // Check if this post is liked by the current user
                         val isLiked = if (currentUserId.isNotEmpty()) {
                             likeRepository.isLikedByUser(currentUserId, post.id).getOrNull() ?: false
