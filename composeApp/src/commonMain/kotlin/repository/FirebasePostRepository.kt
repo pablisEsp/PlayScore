@@ -70,4 +70,40 @@ class FirebasePostRepository(
         val updatedPost = post.copy(likeCount = post.likeCount + 1)
         database.updateDocument(postsPath, postId, updatedPost)
     }
+
+    override suspend fun getCommentsForPost(postId: String): Flow<List<Post>> = flow {
+        try {
+            val allPosts = database.getCollection<Post>("posts")
+            val comments = allPosts.filter { it.parentPostId == postId }
+                .sortedByDescending {
+                    try {
+                        if (it.createdAt.isNotEmpty())
+                            kotlinx.datetime.Instant.parse(it.createdAt).toEpochMilliseconds()
+                        else 0L
+                    } catch (e: Exception) {
+                        0L
+                    }
+                }
+            emit(comments)
+        } catch (e: Exception) {
+            emit(emptyList())
+        }
+    }
+
+    override suspend fun hasReplies(postId: String): Boolean {
+        val allPosts = database.getCollection<Post>("posts")
+        return allPosts.any { it.parentPostId == postId }
+    }
+
+    override suspend fun getPostById(postId: String): Flow<Post?> = flow {
+        try {
+            val documentPath = "$postsPath/$postId"
+            val post = database.getDocument<Post>(documentPath)
+            emit(post)
+        } catch (e: Exception) {
+            println("Error fetching post by ID '$postId': ${e.message}")
+            emit(null)
+        }
+    }
+
 }

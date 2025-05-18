@@ -199,8 +199,6 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
             val items = mutableListOf<T>()
             for (childSnapshot in snapshot.children) {
                 try {
-                    // Create a Post object manually from the individual fields
-                    // For example, if T is Post:
                     if (path == "posts") {
                         val id = childSnapshot.key ?: ""
                         val authorId = childSnapshot.child("authorId").getValue(String::class.java) ?: ""
@@ -212,7 +210,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
 
                         val post = Post(
-                            id = id,
+                            id = id, // Use Firebase key directly
                             authorId = authorId,
                             authorName = authorName,
                             content = content,
@@ -224,11 +222,11 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
 
                         items.add(post)
                     } else {
-                        // Handle other collection types
-                        val item = childSnapshot.getValue(Object::class.java) as? T
-                        if (item != null) {
-                            items.add(item)
-                        }
+                        // For other collection types, use the key as the ID
+                        val key = childSnapshot.key ?: ""
+                        val valueMap = childSnapshot.getValue(Map::class.java) as? Map<String, Any>
+                        val item = deserializeToType<T>(valueMap, key)
+                        item?.let { items.add(it) }
                     }
                 } catch (e: Exception) {
                     Log.e("FirebaseDatabase", "Error deserializing item: ${e.message}")
@@ -275,10 +273,36 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
         database.getReference(path).get()
             .addOnSuccessListener { snapshot ->
                 try {
-                    val key = path.split("/").last()
-                    val valueMap = snapshot.getValue(Map::class.java) as? Map<String, Any>
-                    val item = deserializeToType<T>(valueMap, key)
-                    continuation.resume(item)
+                    // Check if this is a post path (most common case)
+                    if (path.startsWith("posts/")) {
+                        val id = snapshot.key ?: path.split("/").last()
+                        // Directly access child fields instead of using generic Map conversion
+                        val authorId = snapshot.child("authorId").getValue(String::class.java) ?: ""
+                        val authorName = snapshot.child("authorName").getValue(String::class.java) ?: ""
+                        val content = snapshot.child("content").getValue(String::class.java) ?: ""
+                        val mediaUrls = snapshot.child("mediaUrls").getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
+                        val likeCount = snapshot.child("likeCount").getValue(Int::class.java) ?: 0
+                        val parentPostId = snapshot.child("parentPostId").getValue(String::class.java)
+                        val createdAt = snapshot.child("createdAt").getValue(String::class.java) ?: ""
+
+                        val post = Post(
+                            id = id,
+                            authorId = authorId,
+                            authorName = authorName,
+                            content = content,
+                            mediaUrls = mediaUrls,
+                            likeCount = likeCount,
+                            parentPostId = parentPostId,
+                            createdAt = createdAt
+                        ) as T
+                        continuation.resume(post)
+                    } else {
+                        // For other document types
+                        val key = path.split("/").last()
+                        val valueMap = snapshot.getValue(object : GenericTypeIndicator<Map<String, Any>>() {})
+                        val item = deserializeToType<T>(valueMap, key)
+                        continuation.resume(item)
+                    }
                 } catch (e: Exception) {
                     Log.e("FirebaseDatabase", "Error deserializing document: ${e.message}")
                     continuation.resume(null)
@@ -294,16 +318,25 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
         val ref = database.getReference(path).push()
         val id = ref.key ?: ""
 
-        // Add id to the data if it's a Map
-        val dataWithId = when (data) {
+        // For Post objects, we'll create a new instance without the id field
+        val dataToSave = when (data) {
+            is Post -> {
+                // Convert to map and remove id field
+                val postMap = data.toMap().toMutableMap()
+                postMap.remove("id") // Remove id completely instead of setting to empty
+                postMap
+            }
             is Map<*, *> -> {
+                // For maps, filter out the id field if present
                 @Suppress("UNCHECKED_CAST")
-                (data as Map<String, Any>).toMutableMap().apply { put("id", id) }
+                val mapData = (data as Map<String, Any>).toMutableMap()
+                mapData.remove("id") // Remove id field if it exists
+                mapData
             }
             else -> data
         }
 
-        ref.setValue(dataWithId)
+        ref.setValue(dataToSave)
             .addOnSuccessListener {
                 continuation.resume(id)
             }
@@ -313,31 +346,38 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
             }
     }
 
+    // Add this extension function to convert Post to Map
+    private fun Post.toMap(): Map<String, Any?> {
+        return mapOf(
+            "authorId" to authorId,
+            "authorName" to authorName,
+            "content" to content,
+            "mediaUrls" to mediaUrls,
+            "likeCount" to likeCount,
+            "parentPostId" to parentPostId,
+            "createdAt" to createdAt
+        )
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun <T> deserializeToType(map: Map<String, Any>?, id: String): T? {
         if (map == null) return null
 
         return try {
-            // Add ID to map if not present
-            val mutableMap = map.toMutableMap()
-            if (!mutableMap.containsKey("id")) {
-                mutableMap["id"] = id
-            }
-
             // Create the appropriate object based on class name reflection
-            val className = mutableMap["class"] as? String ?: "data.model.Post"
+            val className = map["class"] as? String ?: "data.model.Post"
 
             when (className) {
                 "data.model.Post" -> {
                     data.model.Post(
-                        id = mutableMap["id"] as? String ?: id,
-                        authorId = mutableMap["authorId"] as? String ?: "",
-                        authorName = mutableMap["authorName"] as? String ?: "",
-                        content = mutableMap["content"] as? String ?: "",
-                        mediaUrls = mutableMap["mediaUrls"] as? List<String> ?: emptyList(),
-                        likeCount = (mutableMap["likeCount"] as? Number)?.toInt() ?: 0,
-                        parentPostId = mutableMap["parentPostId"] as? String,
-                        createdAt = mutableMap["createdAt"] as? String ?: ""
+                        id = id, // Use the Firebase key as the ID directly
+                        authorId = map["authorId"] as? String ?: "",
+                        authorName = map["authorName"] as? String ?: "",
+                        content = map["content"] as? String ?: "",
+                        mediaUrls = map["mediaUrls"] as? List<String> ?: emptyList(),
+                        likeCount = (map["likeCount"] as? Number)?.toInt() ?: 0,
+                        parentPostId = map["parentPostId"] as? String,
+                        createdAt = map["createdAt"] as? String ?: ""
                     ) as T
                 }
                 // Add other model cases as needed

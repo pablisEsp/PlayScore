@@ -6,20 +6,21 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
 import org.koin.compose.koinInject
 import ui.components.AppBottomNavBar
 import ui.home.HomeScreen
 import ui.login.LoginScreen
+import ui.post.PostDetailScreen
 import ui.profile.ProfileScreen
 import ui.register.RegisterScreen
 import ui.search.SearchScreen
@@ -30,61 +31,28 @@ import ui.team.TeamScreen
 fun AppNavHost(
     firebaseAuth: FirebaseAuthInterface = koinInject()
 ) {
-    val navController: NavHostController = rememberNavController()
-    var startDestination by remember { mutableStateOf<Any>(LoginScreen) }
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route?.let {
-        when (it) {
-            "navigation.HomeScreen" -> HomeScreen
-            "navigation.SearchScreen" -> SearchScreen
-            "navigation.TeamScreen" -> TeamScreen
-            "navigation.ProfileScreen" -> ProfileScreen
-            "navigation.SettingsScreen" -> SettingsScreen
-            "navigation.LoginScreen" -> LoginScreen
-            "navigation.RegisterScreen" -> RegisterScreen
-            else -> null
-        }
+    val navController = rememberNavController()
+    val startDestination = remember {
+        if (firebaseAuth.getCurrentUser() != null) Home else Login
     }
 
-    // Check if user is logged in to determine start destination
-    LaunchedEffect(Unit) {
-        if (firebaseAuth.getCurrentUser() != null) {
-            startDestination = HomeScreen
-        }
-    }
+    val backStack by navController.currentBackStackEntryAsState()
+    val currentRoute = backStack?.destination?.route
 
-    // Determine if bottom nav should be visible
-    val showBottomNav = currentRoute in NavigationItems.allDestinations
+    val showBottomNav = currentRoute in listOf(
+        Home::class.qualifiedName,
+        Search::class.qualifiedName,
+        Team::class.qualifiedName,
+        Profile::class.qualifiedName,
+        Settings::class.qualifiedName
+    )
 
     Scaffold(
         bottomBar = {
             AppBottomNavBar(
                 currentRoute = currentRoute,
                 visible = showBottomNav,
-                onNavigate = { destination ->
-                    // Convert the destination to its route string
-                    val routeString = when(destination) {
-                        is HomeScreen -> "navigation.HomeScreen"
-                        is SearchScreen -> "navigation.SearchScreen"
-                        is TeamScreen -> "navigation.TeamScreen"
-                        is ProfileScreen -> "navigation.ProfileScreen"
-                        is SettingsScreen -> "navigation.SettingsScreen"
-                        else -> null
-                    }
-
-                    routeString?.let {
-                        navController.navigate(it) {
-                            // Pop up to the start destination of the graph
-                            popUpTo("navigation.HomeScreen") {
-                                saveState = true
-                            }
-                            // Avoid multiple copies of the same destination
-                            launchSingleTop = true
-                            // Restore state when reselecting
-                            restoreState = true
-                        }
-                    }
-                }
+                onNavigate = { navController.navigate(it) }
             )
         }
     ) { innerPadding ->
@@ -93,32 +61,19 @@ fun AppNavHost(
                 navController = navController,
                 startDestination = startDestination
             ) {
-                composable<LoginScreen> {
-                    LoginScreen(navController = navController)
-                }
-
-                composable<RegisterScreen> {
-                    RegisterScreen(navController = navController)
-                }
-
-                composable<HomeScreen> {
-                    HomeScreen(navController = navController)
-                }
-
-                composable<SearchScreen> {
-                    SearchScreen(navController = navController)
-                }
-
-                composable<TeamScreen> {
-                    TeamScreen(navController = navController)
-                }
-
-                composable<ProfileScreen> {
-                    ProfileScreen(navController = navController)
-                }
-
-                composable<SettingsScreen> {
-                    SettingsScreen(navController = navController)
+                composable<Login> { LoginScreen(navController) }
+                composable<Register> { RegisterScreen(navController) }
+                composable<Home> { HomeScreen(navController) }
+                composable<Search> { SearchScreen(navController) }
+                composable<Team> { TeamScreen(navController) }
+                composable<Profile> { ProfileScreen(navController) }
+                composable<Settings> { SettingsScreen(navController) }
+                composable<PostDetail> { backStackEntry ->
+                    val postDetail: PostDetail = backStackEntry.toRoute()
+                    PostDetailScreen(
+                        postId = postDetail.postId,
+                        navController = navController
+                    )
                 }
             }
         }

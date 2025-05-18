@@ -18,6 +18,7 @@ import data.model.Post
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import navigation.PostDetail
 import org.koin.compose.koinInject
 import ui.components.RefreshableContainer
 import ui.components.rememberRefreshHandler
@@ -42,8 +43,8 @@ fun NewPostDialog(onDismiss: () -> Unit, onPostCreated: (content: String) -> Uni
         },
         confirmButton = {
             Button(
-                onClick = { onPostCreated(postContent) },
-                enabled = postContent.isNotBlank()
+                onClick = { onPostCreated(postContent.trim()) },
+                enabled = postContent.trim().isNotBlank()
             ) {
                 Text("Post")
             }
@@ -318,9 +319,9 @@ fun HomeScreen(
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Divider(
+                    HorizontalDivider(
                         Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outline
+                        DividerDefaults.Thickness, color = MaterialTheme.colorScheme.outline
                     )
                     Spacer(Modifier.height(8.dp))
                 }
@@ -331,7 +332,7 @@ fun HomeScreen(
                         isLiked = post.isLikedByCurrentUser,
                         onLikeClicked = { postViewModel.likePost(post.id) },
                         onPostClicked = {
-                            navController.navigate("post/${post.id}")
+                            navController.navigate(PostDetail(post.id))
                         }
                     )
                 }

@@ -1,9 +1,11 @@
 package data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class Post(
+    @Transient
     val id: String = "",
     val authorId: String = "",
     val authorName: String = "",
@@ -13,6 +15,7 @@ data class Post(
     val parentPostId: String? = null,
     val createdAt: String,
     // This could be computed property in your ViewModel
+    @Transient
     val isLikedByCurrentUser: Boolean = false
 )
 

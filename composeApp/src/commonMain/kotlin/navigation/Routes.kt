@@ -1,51 +1,27 @@
 package navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.rounded.Face
-import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 
 @Serializable
-data object LoginScreen
+data object Login
 
 @Serializable
-data object RegisterScreen
+data object Register
 
 @Serializable
-data object HomeScreen {
-    val icon: ImageVector = Icons.Default.Home
-    val title: String = "Home"
-}
+data object Home
 
 @Serializable
-data object SearchScreen {
-    val icon: ImageVector = Icons.Default.Search
-    val title: String = "Search"
-}
+data object Search
 
 @Serializable
-data object TeamScreen {
-    val icon: ImageVector = Icons.Rounded.Face
-    val title: String = "Team"
-}
+data object Team
 
 @Serializable
-data object ProfileScreen {
-    val icon: ImageVector = Icons.Default.Person
-    val title: String = "Profile"
-}
+data object Profile
 
 @Serializable
-data object SettingsScreen {
-    val icon: ImageVector = Icons.Default.Settings
-    val title: String = "Settings"
-}
+data object Settings
 
-object NavigationItems {
-    val bottomNavItems = listOf(HomeScreen, SearchScreen, TeamScreen, ProfileScreen)
-    val allDestinations = bottomNavItems + SettingsScreen
-}
+@Serializable
+data class PostDetail(val postId: String)

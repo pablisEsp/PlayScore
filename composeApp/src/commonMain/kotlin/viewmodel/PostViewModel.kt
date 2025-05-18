@@ -27,9 +27,17 @@ class PostViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _currentPost = MutableStateFlow<Post?>(null)
+    val currentPost: StateFlow<Post?> = _currentPost.asStateFlow()
+
+    private val _comments = MutableStateFlow<List<Post>>(emptyList())
+    val comments: StateFlow<List<Post>> = _comments.asStateFlow()
+
+    private val _parentPost = MutableStateFlow<Post?>(null)
+    val parentPost: StateFlow<Post?> = _parentPost.asStateFlow()
+
     init {
         getAllPosts(forceRefresh = true)
-
     }
 
     fun createPost(content: String, mediaUrls: List<String> = emptyList(), parentPostId: String? = null) {
@@ -45,17 +53,20 @@ class PostViewModel(
                     parentPostId = parentPostId,
                     createdAt = Clock.System.now().toString()
                 )
-
-                val result = postRepository.createPost(post)
-
-                // After successfully creating the post, refresh the posts list
-                if (result.isNotEmpty()) {
-                    getAllPosts(forceRefresh = true) // This will update _posts with the new post included
+                val postId = postRepository.createPost(post)
+                if (postId.isNotEmpty()) {
+                    if (parentPostId != null) {
+                        // If this is a comment, refresh the comments for the parent post
+                        getCommentsForPost(parentPostId)
+                    } else {
+                        // If this is a main post, refresh the main posts list
+                        getAllPosts(forceRefresh = true)
+                    }
                 } else {
-                    _isLoading.value = false // Only set to false if we're not calling getAllPosts
+                    _isLoading.value = false
                 }
             } catch (e: Exception) {
-                //Log.e("PostViewModel", "Error creating post: ${e.message}")
+                println("Error creating post: ${e.message}")
                 _isLoading.value = false
             }
         }
@@ -76,8 +87,29 @@ class PostViewModel(
                         )
                     }
                 }
+                // Update currentPost if it’s the liked post
+                _currentPost.value?.let { post ->
+                    if (post.id == postId) {
+                        _currentPost.value = post.copy(
+                            isLikedByCurrentUser = isNowLiked,
+                            likeCount = post.likeCount + if (isNowLiked) 1 else -1
+                        )
+                    }
+                }
+
+                // Update comments list if the liked post is a comment
+                        _comments.update { commentsList ->
+                            commentsList.map { comment ->
+                                if (comment.id != postId) comment
+                                else comment.copy(
+                                    isLikedByCurrentUser = isNowLiked,
+                                    likeCount = comment.likeCount + if (isNowLiked) 1 else -1
+                                )
+                            }
+                        }
+
             } else {
-                // handle error if needed
+                println("Error toggling like for post ID: $postId")
             }
         }
     }
@@ -86,30 +118,104 @@ class PostViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Get the current user ID for like status checking
                 val currentUserId = auth.getCurrentUser()?.uid ?: ""
-
                 postRepository.getAllPosts(forceRefresh = forceRefresh).collect { fetchedPosts ->
-                    // Process each post to check if it's liked by current user
                     val enhancedPosts = fetchedPosts.map { post ->
                         println("Post ID: ${post.id}, Timestamp: ${post.createdAt}")
-
-                        // Check if this post is liked by the current user
                         val isLiked = if (currentUserId.isNotEmpty()) {
                             likeRepository.isLikedByUser(currentUserId, post.id).getOrNull() ?: false
                         } else false
-
-                        // Return the post with correct like status
                         post.copy(isLikedByCurrentUser = isLiked)
                     }
-
                     _posts.value = enhancedPosts
                 }
             } catch (e: Exception) {
-                // Handle any exceptions
                 println("Error loading posts: ${e.message}")
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun getPostById(postId: String) {
+        println("Fetching post with ID: $postId")
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid ?: ""
+                postRepository.getPostById(postId).collect { post ->
+                    if (post != null) {
+                        val isLiked = if (currentUserId.isNotEmpty()) {
+                            likeRepository.isLikedByUser(currentUserId, post.id).getOrNull() ?: false
+                        } else false
+                        _currentPost.value = post.copy(isLikedByCurrentUser = isLiked)
+                        println("Fetched post: $post")
+                    } else {
+                        _currentPost.value = null
+                        println("Post not found for ID: $postId")
+                    }
+                }
+            } catch (e: Exception) {
+                _currentPost.value = null
+                println("Error loading post with ID: $postId, Error: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun getCommentsForPost(postId: String) {
+        println("Fetching comments for post ID: $postId")
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid ?: ""
+                postRepository.getCommentsForPost(postId).collect { fetchedComments ->
+                    val enhancedComments = fetchedComments.map { comment ->
+                        val isLiked = if (currentUserId.isNotEmpty()) {
+                            likeRepository.isLikedByUser(currentUserId, comment.id).getOrNull() ?: false
+                        } else false
+                        comment.copy(isLikedByCurrentUser = isLiked)
+                    }
+                    _comments.value = enhancedComments
+                    println("Fetched ${enhancedComments.size} comments for post ID: $postId")
+                }
+            } catch (e: Exception) {
+                _comments.value = emptyList()
+                println("Error loading comments for post ID: $postId, Error: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun getParentPostIfExists(postId: String) {
+        println("Fetching parent post for post ID: $postId")
+        viewModelScope.launch {
+            try {
+                postRepository.getPostById(postId).collect { post ->
+                    if (post?.parentPostId != null) {
+                        postRepository.getPostById(post.parentPostId).collect { parentPost ->
+                            if (parentPost != null) {
+                                val currentUserId = auth.getCurrentUser()?.uid ?: ""
+                                val isLiked = if (currentUserId.isNotEmpty()) {
+                                    likeRepository.isLikedByUser(currentUserId, parentPost.id).getOrNull() ?: false
+                                } else false
+                                _parentPost.value = parentPost.copy(isLikedByCurrentUser = isLiked)
+                                println("Fetched parent post: $parentPost")
+                            } else {
+                                _parentPost.value = null
+                                println("Parent post not found for post ID: ${post.parentPostId}")
+                            }
+                        }
+                    } else {
+                        _parentPost.value = null
+                        println("No parent post for post ID: $postId")
+                    }
+                }
+            } catch (e: Exception) {
+                _parentPost.value = null
+                println("Error loading parent post for post ID: $postId, Error: ${e.message}")
             }
         }
     }
@@ -119,4 +225,3 @@ class PostViewModel(
         return database.getUserData(uid) ?: throw IllegalStateException("User data not found")
     }
 }
-
