@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
+import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
 import ui.components.AppBottomNavBar
 import ui.home.HomeScreen
@@ -25,6 +26,8 @@ import ui.profile.ProfileScreen
 import ui.register.RegisterScreen
 import ui.search.SearchScreen
 import ui.settings.SettingsScreen
+import ui.team.CreateTeamScreen
+import ui.team.TeamManagementScreen
 import ui.team.TeamScreen
 
 @Composable
@@ -66,6 +69,14 @@ fun AppNavHost(
                 composable<Home> { HomeScreen(navController) }
                 composable<Search> { SearchScreen(navController) }
                 composable<Team> { TeamScreen(navController) }
+                composable<TeamManagement> { backStackEntry ->
+                    val teamManagement: TeamManagement = backStackEntry.toRoute()
+                    TeamManagementScreen(
+                        teamId = teamManagement.teamId,
+                        navController = navController
+                    )
+                }
+                composable<CreateTeam> { CreateTeamScreen(navController)}
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
                 composable<PostDetail> { backStackEntry ->

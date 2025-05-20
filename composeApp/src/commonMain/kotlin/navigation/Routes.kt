@@ -18,6 +18,12 @@ data object Search
 data object Team
 
 @Serializable
+data class TeamManagement(val teamId: String)
+
+@Serializable
+data object CreateTeam
+
+@Serializable
 data object Profile
 
 @Serializable

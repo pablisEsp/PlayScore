@@ -19,6 +19,7 @@ import viewmodel.PostViewModel
 import viewmodel.RegisterViewModel
 import kotlin.coroutines.CoroutineContext
 import repository.PostRepository
+import viewmodel.TeamViewModel
 
 // Common module for shared dependencies
 val appModule = module {
@@ -40,7 +41,7 @@ val appModule = module {
     viewModelOf(::LoginViewModel)
     viewModelOf(::RegisterViewModel)
     viewModelOf(::HomeViewModel)
-
+    viewModelOf(::TeamViewModel)
     viewModelOf(::PostViewModel)
 }
 
