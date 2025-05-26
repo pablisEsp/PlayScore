@@ -88,7 +88,13 @@ fun AppBottomNavBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     bottomNavItems.forEach { item ->
-                        val selected = currentRoute == item.route::class.qualifiedName
+                        val selected = when {
+                            // For Search route specifically, check if currentRoute starts with its qualified name
+                            item.route == Search && currentRoute?.startsWith(Search::class.qualifiedName?.substringBefore("?").toString()) == true -> true
+                            // For other routes, keep the exact match
+                            else -> currentRoute == item.route::class.qualifiedName
+                        }
+                        
                         val animatedSize by animateDpAsState(if (selected) 30.dp else 24.dp)
                         val interactionSource = remember { MutableInteractionSource() }
 

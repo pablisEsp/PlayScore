@@ -40,8 +40,7 @@ fun SearchScreen(
 
     // Get the filter parameter from navigation
     val navBackStackEntry = navController.currentBackStackEntry
-    val filterParam = navBackStackEntry?.arguments?.getString("filter")
-
+    val filterParam = navBackStackEntry?.arguments?.get("filter") as? String
 
     // Apply the filter from navigation parameter
     LaunchedEffect(filterParam) {

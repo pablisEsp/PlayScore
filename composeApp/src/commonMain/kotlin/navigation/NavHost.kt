@@ -39,9 +39,9 @@ fun AppNavHost(
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
-    val showBottomNav = currentRoute in listOf(
+    val showBottomNav = currentRoute?.startsWith(Search::class.qualifiedName?.substringBefore("?").toString()) == true ||
+            currentRoute in listOf(
         Home::class.qualifiedName,
-        Search::class.qualifiedName,
         Team::class.qualifiedName,
         Profile::class.qualifiedName,
         Settings::class.qualifiedName
@@ -64,11 +64,14 @@ fun AppNavHost(
                 composable<Login> { LoginScreen(navController) }
                 composable<Register> { RegisterScreen(navController) }
                 composable<Home> { HomeScreen(navController) }
-                composable<Search> { SearchScreen(navController) }
                 composable<Team> { TeamScreen(navController) }
                 composable<CreateTeam> { CreateTeamScreen(navController)}
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
+                composable<Search> {
+                    // Redirect to the parameterized route
+                    navController.navigate("navigation.Search?filter=")
+                }
                 composable(
                     route = "navigation.Search?filter={filter}",
                     arguments = listOf(
