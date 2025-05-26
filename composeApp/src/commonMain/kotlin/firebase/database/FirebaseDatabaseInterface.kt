@@ -18,7 +18,9 @@ interface FirebaseDatabaseInterface {
     suspend fun <T> getDocument(path: String): T?
     suspend fun <T> createDocument(path: String, data: T): String
     suspend fun <T> updateDocument(path: String, id: String, data: T): Boolean
+    suspend fun updateFields(collectionPath: String, documentId: String, fields: Map<String, Any?>): Boolean
     suspend fun deleteDocument(path: String, id: String): Boolean
+
 
     // Like-related methods
     suspend fun createLike(like: Like): String

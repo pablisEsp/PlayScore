@@ -133,6 +133,22 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
         }
     }
 
+    override suspend fun updateFields(collectionPath: String, documentId: String, fields: Map<String, Any?>): Boolean = suspendCoroutine { continuation ->
+        // Create a reference to the document
+        val docRef = database.getReference("$collectionPath/$documentId")
+
+        // Use updateChildren() to only update the specified fields
+        docRef.updateChildren(fields)
+            .addOnSuccessListener {
+                Log.d("FirebaseDatabase", "Fields updated successfully for $collectionPath/$documentId")
+                continuation.resume(true)
+            }
+            .addOnFailureListener { e ->
+                Log.e("FirebaseDatabase", "Error updating fields: ${e.message}", e)
+                continuation.resume(false)
+            }
+    }
+
 
     override suspend fun updateUserData(uid: String, updates: Map<String, Any?>): Boolean = suspendCoroutine { continuation ->
         usersRef.child(uid).updateChildren(updates)

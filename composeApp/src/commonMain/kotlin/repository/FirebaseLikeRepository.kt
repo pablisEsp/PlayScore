@@ -31,9 +31,9 @@ class FirebaseLikeRepository(
                 if (success) {
                     database.deleteDocument("userLikes/$userId", postId)
 
-                    // Create an updated copy of the post with new like count
-                    val updatedPost = post.copy(likeCount = maxOf(0, post.likeCount - 1))
-                    database.updateDocument("posts", postId, updatedPost)
+                    // Only update the likeCount field
+                    val newCount = maxOf(0, post.likeCount - 1)
+                    database.updateFields("posts", postId, mapOf("likeCount" to newCount))
                 }
                 Result.success(false) // Post is now unliked
             } else {
@@ -47,10 +47,10 @@ class FirebaseLikeRepository(
                 // Also add to userLikes collection
                 val success2 = database.updateDocument("userLikes/$userId", postId, likeData)
 
-                // Update with complete post object
+                // Only update the likeCount field
                 if (success1 && success2) {
-                    val updatedPost = post.copy(likeCount = post.likeCount + 1)
-                    database.updateDocument("posts", postId, updatedPost)
+                    val newCount = post.likeCount + 1
+                    database.updateFields("posts", postId, mapOf("likeCount" to newCount))
                 }
 
                 Result.success(success1 && success2) // Post is now liked
