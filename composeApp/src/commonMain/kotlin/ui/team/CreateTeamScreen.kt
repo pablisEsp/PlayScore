@@ -19,22 +19,55 @@ fun CreateTeamScreen(
     teamViewModel: TeamViewModel = koinInject()
 ) {
     var teamName by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     val isLoading by teamViewModel.isLoading.collectAsState()
     val errorMessage by teamViewModel.errorMessage.collectAsState()
+    val teamCreationResult by teamViewModel.teamCreationResult.collectAsState()
+    val isTeamCreationComplete by teamViewModel.isTeamCreationComplete.collectAsState()
     val currentUser by teamViewModel.currentUser.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(currentUser?.teamMembership) {
-        // If user now has a team, it means team creation was successful
-        if (currentUser?.teamMembership?.teamId != null) {
-            navController.popBackStack()
+    LaunchedEffect(Unit) {
+        teamViewModel.getCurrentUserData()
+    }
+
+    // Redirect users who already have a team
+    LaunchedEffect(currentUser) {
+        val teamId = currentUser?.teamMembership?.teamId
+        if (teamId != null) {
+            // User already has a team, navigate to team management
+            navController.navigate("navigation.Team") {
+                popUpTo("navigation.Home") { inclusive = false }
+            }
         }
     }
 
+    // Handle navigation when team creation completes
+    LaunchedEffect(isTeamCreationComplete) {
+        if (isTeamCreationComplete) {
+            val teamId = teamViewModel.currentUser.value?.teamMembership?.teamId
+            if (teamId != null) {
+                // Navigate to team management
+                navController.navigate("navigation.Team") {
+                    // Clear the back stack to prevent going back to the team creation screen
+                    popUpTo("navigation.Home") { inclusive = false }
+                }
+            }
+            teamViewModel.resetTeamCreationState()
+        }
+    }
+
+    // Show feedback messages
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             teamViewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(teamCreationResult) {
+        teamCreationResult?.let {
+            snackbarHostState.showSnackbar(it)
         }
     }
 
@@ -64,13 +97,6 @@ fun CreateTeamScreen(
                 style = MaterialTheme.typography.headlineMedium
             )
 
-            Text(
-                "As team creator, you will be the team president with full administrative powers.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             OutlinedTextField(
                 value = teamName,
                 onValueChange = { teamName = it },
@@ -79,10 +105,18 @@ fun CreateTeamScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description (Optional)") },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Button(
-                onClick = { teamViewModel.createTeam(teamName.trim()) },
+                onClick = {
+                    teamViewModel.createTeam(teamName.trim())
+                },
                 enabled = teamName.trim().isNotBlank() && !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -95,6 +129,15 @@ fun CreateTeamScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text("Create Team")
+            }
+
+            // Show success message if available
+            teamCreationResult?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }

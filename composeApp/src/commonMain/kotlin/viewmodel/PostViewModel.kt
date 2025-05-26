@@ -74,42 +74,48 @@ class PostViewModel(
 
     fun likePost(postId: String) {
         viewModelScope.launch {
-            val user = getCurrentUser()
-            val result = likeRepository.toggleLike(user.id, postId)
-            if (result.isSuccess) {
-                val isNowLiked = result.getOrNull() ?: return@launch
-                _posts.update { list ->
-                    list.map { post ->
-                        if (post.id != postId) post
-                        else post.copy(
-                            isLikedByCurrentUser = isNowLiked,
-                            likeCount = post.likeCount + if (isNowLiked) 1 else -1
-                        )
-                    }
-                }
-                // Update currentPost if it’s the liked post
-                _currentPost.value?.let { post ->
-                    if (post.id == postId) {
-                        _currentPost.value = post.copy(
-                            isLikedByCurrentUser = isNowLiked,
-                            likeCount = post.likeCount + if (isNowLiked) 1 else -1
-                        )
-                    }
-                }
-
-                // Update comments list if the liked post is a comment
-                        _comments.update { commentsList ->
-                            commentsList.map { comment ->
-                                if (comment.id != postId) comment
-                                else comment.copy(
-                                    isLikedByCurrentUser = isNowLiked,
-                                    likeCount = comment.likeCount + if (isNowLiked) 1 else -1
-                                )
-                            }
+            _isLoading.value = true
+            try {
+                val user = getCurrentUser()
+                val result = likeRepository.toggleLike(user.id, postId)
+                if (result.isSuccess) {
+                    val isNowLiked = result.getOrNull() ?: return@launch
+                    _posts.update { list ->
+                        list.map { post ->
+                            if (post.id != postId) post
+                            else post.copy(
+                                isLikedByCurrentUser = isNowLiked,
+                                likeCount = post.likeCount + if (isNowLiked) 1 else -1
+                            )
                         }
+                    }
+                    // Update currentPost if it's the liked post
+                    _currentPost.value?.let { post ->
+                        if (post.id == postId) {
+                            _currentPost.value = post.copy(
+                                isLikedByCurrentUser = isNowLiked,
+                                likeCount = post.likeCount + if (isNowLiked) 1 else -1
+                            )
+                        }
+                    }
 
-            } else {
-                println("Error toggling like for post ID: $postId")
+                    // Update comments list if the liked post is a comment
+                    _comments.update { commentsList ->
+                        commentsList.map { comment ->
+                            if (comment.id != postId) comment
+                            else comment.copy(
+                                isLikedByCurrentUser = isNowLiked,
+                                likeCount = comment.likeCount + if (isNowLiked) 1 else -1
+                            )
+                        }
+                    }
+                } else {
+                    println("Error toggling like for post ID: $postId")
+                }
+            } catch (e: Exception) {
+                println("Error liking post: ${e.message}")
+            } finally {
+                _isLoading.value = false // Reset loading state
             }
         }
     }

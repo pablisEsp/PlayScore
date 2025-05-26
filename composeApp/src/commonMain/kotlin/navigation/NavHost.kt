@@ -4,19 +4,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
-import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
 import ui.components.AppBottomNavBar
 import ui.home.HomeScreen
@@ -27,7 +23,6 @@ import ui.register.RegisterScreen
 import ui.search.SearchScreen
 import ui.settings.SettingsScreen
 import ui.team.CreateTeamScreen
-import ui.team.TeamManagementScreen
 import ui.team.TeamScreen
 
 @Composable
@@ -69,13 +64,6 @@ fun AppNavHost(
                 composable<Home> { HomeScreen(navController) }
                 composable<Search> { SearchScreen(navController) }
                 composable<Team> { TeamScreen(navController) }
-                composable<TeamManagement> { backStackEntry ->
-                    val teamManagement: TeamManagement = backStackEntry.toRoute()
-                    TeamManagementScreen(
-                        teamId = teamManagement.teamId,
-                        navController = navController
-                    )
-                }
                 composable<CreateTeam> { CreateTeamScreen(navController)}
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }

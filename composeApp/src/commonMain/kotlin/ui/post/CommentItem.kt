@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import data.model.Post
 import ui.home.TimeAgoText
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentItem(
     comment: Post,
@@ -54,6 +53,20 @@ fun CommentItem(
                     text = comment.authorName,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "•",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Display username with @ symbol
+                Text(
+                    text = "@${comment.authorName.lowercase().replace(" ", "_")}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline
                 )
 
                 TimeAgoText(timestamp = comment.createdAt)

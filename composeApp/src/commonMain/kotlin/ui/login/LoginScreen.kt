@@ -43,9 +43,9 @@ fun LoginScreen(
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
-            navController.navigate("navigation.HomeScreen") {
+            navController.navigate("navigation.Home") {
                 // Use route-based navigation instead of ID-based
-                popUpTo("navigation.LoginScreen") {
+                popUpTo("navigation.Login") {
                     inclusive = true
                 }
             }
@@ -173,7 +173,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                TextButton(onClick = { navController.navigate("navigation.RegisterScreen") }) {
+                TextButton(onClick = { navController.navigate("navigation.Register") }) {
                     Text(
                         text = "Don't have an account? Sign Up",
                         style = MaterialTheme.typography.bodyMedium,

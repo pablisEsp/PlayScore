@@ -65,18 +65,32 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                     val profileImage = snapshot.child("profileImage").getValue(String::class.java) ?: ""
                     val createdAt = snapshot.child("createdAt").getValue(String::class.java) ?: ""
 
-                    // Rest of your mapping code...
+                    // Extract team membership data if it exists
+                    val teamMembershipSnapshot = snapshot.child("teamMembership")
+                    val teamMembership = if (teamMembershipSnapshot.exists()) {
+                        val teamId = teamMembershipSnapshot.child("teamId").getValue(String::class.java)
+                        val roleStr = teamMembershipSnapshot.child("role").getValue(String::class.java)
+                        val role = try {
+                            if (roleStr != null) TeamRole.valueOf(roleStr) else null
+                        } catch (e: Exception) {
+                            Log.w("FirebaseDatabase", "Invalid team role value: $roleStr, defaulting to null")
+                            null
+                        }
+                        TeamMembership(teamId = teamId, role = role)
+                    } else null
 
-                    // Create the complete user object
+                    // Create user object with the extracted teamMembership
                     val user = User(
                         id = id,
                         name = name,
                         email = email,
                         username = username,
                         globalRole = globalRole,
+                        teamMembership = teamMembership,  // Include the teamMembership
                         profileImage = profileImage,
                         createdAt = createdAt
                     )
+
 
                     Log.d("FirebaseDatabase", "Successfully mapped user data: $user")
                     return user
@@ -120,7 +134,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
     }
 
 
-    override suspend fun updateUserData(uid: String, updates: Map<String, Any>): Boolean = suspendCoroutine { continuation ->
+    override suspend fun updateUserData(uid: String, updates: Map<String, Any?>): Boolean = suspendCoroutine { continuation ->
         usersRef.child(uid).updateChildren(updates)
             .addOnSuccessListener {
                 continuation.resume(true)
@@ -162,10 +176,13 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
 
     override suspend fun checkUsernameAvailable(username: String): Boolean {
         if (username.isBlank()) {
+            Log.d("UsernameCheck", "Blank username, returning unavailable")
             return false
         }
 
         return try {
+            Log.d("UsernameCheck", "Checking availability for username: $username")
+
             // Query the usernames collection to check if this username exists
             val snapshot = database.reference
                 .child("usernames")
@@ -173,11 +190,15 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                 .get()
                 .await()
 
-            // If snapshot doesn't exist, username is available
-            !snapshot.exists()
+            val isAvailable = !snapshot.exists()
+            Log.d("UsernameCheck", "Username '$username' exists in DB: ${snapshot.exists()}, isAvailable: $isAvailable")
+
+            isAvailable
         } catch (e: Exception) {
-            println("Error checking username availability: ${e.message}")
-            false // Default to unavailable in case of errors
+            Log.e("UsernameCheck", "Error checking username availability: ${e.message}", e)
+            // During initial app usage when the usernames node might not exist yet,
+            // we should consider usernames available instead of unavailable
+            true // Changed to true to allow first users to register
         }
     }
 
@@ -269,6 +290,8 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
             }
     }
 
+
+
     override suspend fun <T> getDocument(path: String): T? = suspendCoroutine { continuation ->
         database.getReference(path).get()
             .addOnSuccessListener { snapshot ->
@@ -296,7 +319,52 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             createdAt = createdAt
                         ) as T
                         continuation.resume(post)
-                    } else {
+                    }else if (path.startsWith("teams/")) {
+                        // Add special handling for teams
+                        val id = snapshot.key ?: path.split("/").last()
+                        val name = snapshot.child("name").getValue(String::class.java) ?: ""
+                        val presidentId =
+                            snapshot.child("presidentId").getValue(String::class.java) ?: ""
+                        val vicePresidentId =
+                            snapshot.child("vicePresidentId").getValue(String::class.java)
+                        val captainIds = snapshot.child("captainIds")
+                            .getValue(object : GenericTypeIndicator<List<String>>() {})
+                            ?: emptyList()
+                        val playerIds = snapshot.child("playerIds")
+                            .getValue(object : GenericTypeIndicator<List<String>>() {})
+                            ?: emptyList()
+                        val pointsTotal =
+                            snapshot.child("pointsTotal").getValue(Int::class.java) ?: 0
+                        val createdAt =
+                            snapshot.child("createdAt").getValue(String::class.java) ?: ""
+                        val description =
+                            snapshot.child("description").getValue(String::class.java) ?: ""
+                        val logoUrl = snapshot.child("logoUrl").getValue(String::class.java) ?: ""
+                        val location = snapshot.child("location").getValue(String::class.java) ?: ""
+                        val ranking = snapshot.child("ranking").getValue(Int::class.java) ?: 0
+                        val totalWins = snapshot.child("totalWins").getValue(Int::class.java) ?: 0
+                        val totalLosses =
+                            snapshot.child("totalLosses").getValue(Int::class.java) ?: 0
+
+                        val team = data.model.Team(
+                            id = id,
+                            name = name,
+                            presidentId = presidentId,
+                            vicePresidentId = vicePresidentId,
+                            captainIds = captainIds,
+                            playerIds = playerIds,
+                            pointsTotal = pointsTotal,
+                            createdAt = createdAt,
+                            description = description,
+                            logoUrl = logoUrl,
+                            location = location,
+                            ranking = ranking,
+                            totalWins = totalWins,
+                            totalLosses = totalLosses
+                        ) as T
+                        continuation.resume(team)
+                    }
+                    else {
                         // For other document types
                         val key = path.split("/").last()
                         val valueMap = snapshot.getValue(object : GenericTypeIndicator<Map<String, Any>>() {})
@@ -364,13 +432,13 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
         if (map == null) return null
 
         return try {
-            // Create the appropriate object based on class name reflection
+            // Create the appropriate object based on path or class name
             val className = map["class"] as? String ?: "data.model.Post"
 
             when (className) {
                 "data.model.Post" -> {
                     data.model.Post(
-                        id = id, // Use the Firebase key as the ID directly
+                        id = id,
                         authorId = map["authorId"] as? String ?: "",
                         authorName = map["authorName"] as? String ?: "",
                         content = map["content"] as? String ?: "",
@@ -380,7 +448,24 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         createdAt = map["createdAt"] as? String ?: ""
                     ) as T
                 }
-                // Add other model cases as needed
+                "data.model.Team" -> {
+                    data.model.Team(
+                        id = id,
+                        name = map["name"] as? String ?: "",
+                        presidentId = map["presidentId"] as? String ?: "",
+                        vicePresidentId = map["vicePresidentId"] as? String,
+                        captainIds = map["captainIds"] as? List<String> ?: emptyList(),
+                        playerIds = map["playerIds"] as? List<String> ?: emptyList(),
+                        pointsTotal = (map["pointsTotal"] as? Number)?.toInt() ?: 0,
+                        createdAt = map["createdAt"] as? String ?: "",
+                        description = map["description"] as? String ?: "",
+                        logoUrl = map["logoUrl"] as? String ?: "",
+                        location = map["location"] as? String ?: "",
+                        ranking = (map["ranking"] as? Number)?.toInt() ?: 0,
+                        totalWins = (map["totalWins"] as? Number)?.toInt() ?: 0,
+                        totalLosses = (map["totalLosses"] as? Number)?.toInt() ?: 0
+                    ) as T
+                }
                 else -> null
             }
         } catch (e: Exception) {

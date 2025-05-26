@@ -7,7 +7,7 @@ interface FirebaseDatabaseInterface {
     //User methods
     suspend fun saveUserData(userData: User): Boolean
     suspend fun getUserData(uid: String?): User?
-    suspend fun updateUserData(uid: String, updates: Map<String, Any>): Boolean
+    suspend fun updateUserData(uid: String, updates: Map<String, Any?>): Boolean
     suspend fun deleteUser(uid: String): Boolean
     suspend fun updateUsername(userId: String, username: String): Boolean
     suspend fun checkUsernameAvailable(username: String): Boolean

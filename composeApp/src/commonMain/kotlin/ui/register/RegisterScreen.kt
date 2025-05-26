@@ -37,6 +37,7 @@ fun RegisterScreen(
     viewModel: RegisterViewModel = koinInject()
 ) {
     val name by viewModel.name.collectAsState()
+    val username by viewModel.username.collectAsState()
     val email by viewModel.email.collectAsState()
     val password by viewModel.password.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -45,8 +46,8 @@ fun RegisterScreen(
 
     LaunchedEffect(isRegistrationComplete) {
         if (isRegistrationComplete) {
-            navController.navigate("navigation.HomeScreen") {
-                popUpTo("navigation.LoginScreen") {
+            navController.navigate("navigation.Home") {
+                popUpTo("navigation.Login") {
                     inclusive = true
                 }
             }
@@ -130,7 +131,7 @@ fun RegisterScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         AuthTextField(
-                            value = name,
+                            value = username,
                             onValueChange = viewModel::onUsernameChanged,
                             label = "Username",
                             leadingIcon = Icons.Filled.Face

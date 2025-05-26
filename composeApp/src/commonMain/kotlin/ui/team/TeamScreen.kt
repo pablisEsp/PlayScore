@@ -11,6 +11,7 @@ import androidx.navigation.NavController
 import navigation.CreateTeam
 import navigation.TeamManagement
 import org.koin.compose.koinInject
+import ui.components.LocalNavController
 import viewmodel.TeamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,94 +23,83 @@ fun TeamScreen(
     val currentUser by teamViewModel.currentUser.collectAsState()
     val isLoading by teamViewModel.isLoading.collectAsState()
     val navigationEvent by teamViewModel.navigationEvent.collectAsState()
+    val currentTeam by teamViewModel.currentTeam.collectAsState()
 
-    // Observe navigation events
-    LaunchedEffect(navigationEvent) {
-        when (val event = navigationEvent) {
-            is TeamViewModel.TeamNavigationEvent.NavigateToTeam -> {
-                navController.navigate(TeamManagement(event.teamId).toString())
-                teamViewModel.onNavigationEventProcessed()
-            }
-            TeamViewModel.TeamNavigationEvent.None -> { /* Do nothing */ }
-        }
-    }
-
-    // Auto-navigate to team management if user has a team
-    LaunchedEffect(currentUser) {
-        val teamId = currentUser?.teamMembership?.teamId
-        if (teamId != null && navigationEvent == TeamViewModel.TeamNavigationEvent.None) {
-            // User has a team but no navigation event is pending, navigate to team management
-            navController.navigate(TeamManagement(teamId).toString())
-        }
-    }
-
+    // Get the current user data and team if applicable
     LaunchedEffect(Unit) {
         teamViewModel.getCurrentUserData()
+        // getCurrentUserData already calls getTeamById if the user has a team
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Team") }
-            )
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else {
-                val hasTeam = currentUser?.teamMembership?.teamId != null
 
-                if (!hasTeam) {
-                    NoTeamView(
-                        onCreateTeamClick = { navController.navigate(CreateTeam) },
-                        onJoinTeamClick = { /* Will implement later */}
-                            )
-                        } else {
-                        // Team view will be implemented later
-                        Text("Your team view will be shown here")
+    CompositionLocalProvider(LocalNavController provides navController){
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Team") }
+                )
+            }
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    val hasTeam = currentUser?.teamMembership?.teamId != null
+                    print(hasTeam)
+                    if (!hasTeam) {
+                        NoTeamView(
+                            onCreateTeamClick = { navController.navigate(CreateTeam) },
+                            onJoinTeamClick = { /* Will implement later */ }
+                        )
+                    } else {
+                        // Instead of navigating away, show team content directly here
+                        currentTeam?.let { team ->
+                            TeamDetails(team)
+                        } ?: Text("Loading team information...")
                     }
                 }
             }
         }
     }
+}
 
-    @Composable
-    fun NoTeamView(
-        onCreateTeamClick: () -> Unit,
-        onJoinTeamClick: () -> Unit
+@Composable
+fun NoTeamView(
+    onCreateTeamClick: () -> Unit,
+    onJoinTeamClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Text(
+            "You are not part of any team",
+            style = MaterialTheme.typography.titleLarge
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onCreateTeamClick,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                "You are not part of any team",
-                style = MaterialTheme.typography.titleLarge
-            )
+            Text("Create a Team")
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onCreateTeamClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Create a Team")
-            }
-
-            Button(
-                onClick = onJoinTeamClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Join a Team")
-            }
+        Button(
+            onClick = onJoinTeamClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Join a Team")
         }
     }
+}
+

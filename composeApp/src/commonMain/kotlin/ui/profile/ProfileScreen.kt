@@ -76,7 +76,7 @@ fun ProfileScreen(
 
             // Settings button
             Button(
-                onClick = { navController.navigate("navigation.SettingsScreen") },
+                onClick = { navController.navigate("navigation.Settings") },
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -97,8 +97,8 @@ fun ProfileScreen(
             Button(
                 onClick = {
                     viewModel.logout()
-                    navController.navigate("navigation.LoginScreen") {
-                        popUpTo("home") { inclusive = true }
+                    navController.navigate("navigation.Login") {
+                        popUpTo("navigation.Home") { inclusive = true }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(
