@@ -49,12 +49,15 @@ fun TeamScreen(
                 if (isLoading) {
                     CircularProgressIndicator()
                 } else {
-                    val hasTeam = currentUser?.teamMembership?.teamId != null
+                    val hasTeam = !currentUser?.teamMembership?.teamId.isNullOrEmpty()
                     print(hasTeam)
                     if (!hasTeam) {
                         NoTeamView(
-                            onCreateTeamClick = { navController.navigate(CreateTeam) },
-                            onJoinTeamClick = { /* Will implement later */ }
+                            onCreateTeamClick = { navController.navigate("navigation.CreateTeam") },
+                            onJoinTeamClick = {
+                                // Navigate to search with teams filter pre-selected
+                                navController.navigate("navigation.Search?filter=Teams")
+                            }
                         )
                     } else {
                         // Instead of navigating away, show team content directly here
@@ -102,4 +105,3 @@ fun NoTeamView(
         }
     }
 }
-

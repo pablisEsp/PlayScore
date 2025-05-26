@@ -7,6 +7,7 @@ import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.ServerValue
 import data.model.Like
 import data.model.Post
+import data.model.Team
 import data.model.TeamMembership
 import data.model.TeamRole
 import data.model.User
@@ -236,34 +237,83 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
             val items = mutableListOf<T>()
             for (childSnapshot in snapshot.children) {
                 try {
-                    if (path == "posts") {
-                        val id = childSnapshot.key ?: ""
-                        val authorId = childSnapshot.child("authorId").getValue(String::class.java) ?: ""
-                        val authorName = childSnapshot.child("authorName").getValue(String::class.java) ?: ""
-                        val content = childSnapshot.child("content").getValue(String::class.java) ?: ""
-                        val mediaUrls = childSnapshot.child("mediaUrls").getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
-                        val likeCount = childSnapshot.child("likeCount").getValue(Int::class.java) ?: 0
-                        val parentPostId = childSnapshot.child("parentPostId").getValue(String::class.java)
-                        val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
+                    when (path) {
+                        "posts" -> {
+                            // Your existing posts handling
+                            val id = childSnapshot.key ?: ""
+                            val authorId = childSnapshot.child("authorId").getValue(String::class.java) ?: ""
+                            val authorName = childSnapshot.child("authorName").getValue(String::class.java) ?: ""
+                            val content = childSnapshot.child("content").getValue(String::class.java) ?: ""
+                            val mediaUrls = childSnapshot.child("mediaUrls").getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
+                            val likeCount = childSnapshot.child("likeCount").getValue(Int::class.java) ?: 0
+                            val parentPostId = childSnapshot.child("parentPostId").getValue(String::class.java)
+                            val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
 
-                        val post = Post(
-                            id = id, // Use Firebase key directly
-                            authorId = authorId,
-                            authorName = authorName,
-                            content = content,
-                            mediaUrls = mediaUrls,
-                            likeCount = likeCount,
-                            parentPostId = parentPostId,
-                            createdAt = createdAt
-                        ) as T
+                            val post = Post(
+                                id = id,
+                                authorId = authorId,
+                                authorName = authorName,
+                                content = content,
+                                mediaUrls = mediaUrls,
+                                likeCount = likeCount,
+                                parentPostId = parentPostId,
+                                createdAt = createdAt
+                            ) as T
 
-                        items.add(post)
-                    } else {
-                        // For other collection types, use the key as the ID
-                        val key = childSnapshot.key ?: ""
-                        val valueMap = childSnapshot.getValue(Map::class.java) as? Map<String, Any>
-                        val item = deserializeToType<T>(valueMap, key)
-                        item?.let { items.add(it) }
+                            items.add(post)
+                        }
+                        "users" -> {
+                            // Add user-specific handling
+                            val id = childSnapshot.key ?: ""
+                            val name = childSnapshot.child("name").getValue(String::class.java) ?: ""
+                            val email = childSnapshot.child("email").getValue(String::class.java) ?: ""
+                            val username = childSnapshot.child("username").getValue(String::class.java) ?: ""
+                            val roleStr = childSnapshot.child("globalRole").getValue(String::class.java) ?: "USER"
+                            val globalRole = try {
+                                UserRole.valueOf(roleStr)
+                            } catch (e: Exception) {
+                                UserRole.USER
+                            }
+                            val profileImage = childSnapshot.child("profileImage").getValue(String::class.java) ?: ""
+                            val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
+
+                            val user = User(
+                                id = id,
+                                name = name,
+                                email = email,
+                                username = username,
+                                globalRole = globalRole,
+                                profileImage = profileImage,
+                                createdAt = createdAt
+                            ) as T
+
+                            items.add(user)
+                        }
+                        "teams" -> {
+                            // Add team-specific handling
+                            val id = childSnapshot.key ?: ""
+                            val name = childSnapshot.child("name").getValue(String::class.java) ?: ""
+                            val presidentId = childSnapshot.child("presidentId").getValue(String::class.java) ?: ""
+                            val description = childSnapshot.child("description").getValue(String::class.java) ?: ""
+                            val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
+
+                            val team = Team(
+                                id = id,
+                                name = name,
+                                presidentId = presidentId,
+                                description = description,
+                                createdAt = createdAt
+                            ) as T
+
+                            items.add(team)
+                        }
+                        else -> {
+                            // Generic handling for other types
+                            val key = childSnapshot.key ?: ""
+                            val valueMap = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any>>() {})
+                            val item = deserializeToType<T>(valueMap, key)
+                            item?.let { items.add(it) }
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("FirebaseDatabase", "Error deserializing item: ${e.message}")
@@ -291,7 +341,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                 for (childSnapshot in snapshot.children) {
                     try {
                         val key = childSnapshot.key ?: ""
-                        val valueMap = childSnapshot.getValue(Map::class.java) as? Map<String, Any>
+                        val valueMap = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any>>() {})
                         val item = deserializeToType<T>(valueMap, key)
                         item?.let { items.add(it) }
                     } catch (e: Exception) {

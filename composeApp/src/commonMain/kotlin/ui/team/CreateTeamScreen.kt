@@ -34,7 +34,7 @@ fun CreateTeamScreen(
     // Redirect users who already have a team
     LaunchedEffect(currentUser) {
         val teamId = currentUser?.teamMembership?.teamId
-        if (teamId != null) {
+        if (!teamId.isNullOrEmpty()) {
             // User already has a team, navigate to team management
             navController.navigate("navigation.Team") {
                 popUpTo("navigation.Home") { inclusive = false }
@@ -46,7 +46,7 @@ fun CreateTeamScreen(
     LaunchedEffect(isTeamCreationComplete) {
         if (isTeamCreationComplete) {
             val teamId = teamViewModel.currentUser.value?.teamMembership?.teamId
-            if (teamId != null) {
+            if (!teamId.isNullOrEmpty()) {
                 // Navigate to team management
                 navController.navigate("navigation.Team") {
                     // Clear the back stack to prevent going back to the team creation screen
@@ -115,7 +115,7 @@ fun CreateTeamScreen(
 
             Button(
                 onClick = {
-                    teamViewModel.createTeam(teamName.trim())
+                    teamViewModel.createTeam(teamName.trim(), description.trim())
                 },
                 enabled = teamName.trim().isNotBlank() && !isLoading,
                 modifier = Modifier.fillMaxWidth()

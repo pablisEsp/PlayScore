@@ -1,62 +1,291 @@
 package ui.search
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import data.model.Team
+import data.model.User
+import org.koin.compose.koinInject
+import viewmodel.SearchFilter
+import viewmodel.SearchResult
+import viewmodel.SearchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(navController: NavController) {
-    var searchQuery by remember { mutableStateOf("") }
+fun SearchScreen(
+    navController: NavController,
+    searchViewModel: SearchViewModel = koinInject()
+) {
+    val searchQuery by searchViewModel.searchQuery.collectAsState()
+    val activeFilter by searchViewModel.activeFilter.collectAsState()
+    val isSearching by searchViewModel.isSearching.collectAsState()
+    val searchResults by searchViewModel.searchResults.collectAsState()
+    val errorMessage by searchViewModel.errorMessage.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Get the filter parameter from navigation
+    val navBackStackEntry = navController.currentBackStackEntry
+    val filterParam = navBackStackEntry?.arguments?.getString("filter")
+
+
+    // Apply the filter from navigation parameter
+    LaunchedEffect(filterParam) {
+        when (filterParam) {
+            "Teams" -> searchViewModel.setFilter(SearchFilter.Teams)
+            "Users" -> searchViewModel.setFilter(SearchFilter.Users)
+            else -> {} // Keep current filter
+        }
+    }
+
+    // Handle error messages
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            searchViewModel.clearError()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Search") }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            TextField(
+            // Search bar (smaller and at the top)
+            OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search players or teams...") },
-                modifier = Modifier.fillMaxSize(0.9f)
+                onValueChange = { searchViewModel.updateSearchQuery(it) },
+                label = { Text("Search") },
+                placeholder = { Text("Search players or teams...") },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Search")
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchViewModel.updateSearchQuery("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            // Filter chips
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = activeFilter == SearchFilter.All,
+                    onClick = { searchViewModel.setFilter(SearchFilter.All) },
+                    label = { Text("All") }
+                )
+                FilterChip(
+                    selected = activeFilter == SearchFilter.Teams,
+                    onClick = { searchViewModel.setFilter(SearchFilter.Teams) },
+                    label = { Text("Teams") }
+                )
+                FilterChip(
+                    selected = activeFilter == SearchFilter.Users,
+                    onClick = { searchViewModel.setFilter(SearchFilter.Users) },
+                    label = { Text("Users") }
+                )
+            }
 
+            // Results
+            if (isSearching) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (searchResults.isEmpty() && searchQuery.length >= 2) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No results found")
+                }
+            } else if (searchQuery.length < 2) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Enter at least 2 characters to search")
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    items(searchResults) { result ->
+                        when (result) {
+                            is SearchResult.TeamResult -> TeamSearchItem(result.team, navController)
+                            is SearchResult.UserResult -> UserSearchItem(result.user, navController)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TeamSearchItem(team: Team, navController: NavController) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                navController.navigate("navigation.TeamManagement/${team.id}")
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Team logo with rounded rectangle shape
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .size(50.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Search results will appear here",
-                    style = MaterialTheme.typography.bodyLarge
+                    text = team.name.firstOrNull()?.toString() ?: "T",
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = team.name,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        Text(
+                            text = "Team",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                if (team.description.isNotEmpty()) {
+                    Text(
+                        text = team.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserSearchItem(user: User, navController: NavController) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                // Uncomment when user profile navigation is ready
+                // navController.navigate("userProfile/${user.id}")
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // User avatar with circle shape
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = user.name.firstOrNull()?.toString() ?: "U",
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = user.name,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        Text(
+                            text = "User",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "@${user.username}",
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }

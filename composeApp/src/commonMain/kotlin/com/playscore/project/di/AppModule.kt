@@ -17,6 +17,7 @@ import viewmodel.HomeViewModel
 import viewmodel.LoginViewModel
 import viewmodel.PostViewModel
 import viewmodel.RegisterViewModel
+import viewmodel.SearchViewModel
 import kotlin.coroutines.CoroutineContext
 import repository.PostRepository
 import viewmodel.TeamViewModel
@@ -43,6 +44,7 @@ val appModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::TeamViewModel)
     viewModelOf(::PostViewModel)
+    viewModelOf(::SearchViewModel)
 }
 
 // Platform module (to be implemented in platform-specific source sets)

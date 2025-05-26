@@ -7,10 +7,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
 import org.koin.compose.koinInject
@@ -67,6 +69,18 @@ fun AppNavHost(
                 composable<CreateTeam> { CreateTeamScreen(navController)}
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
+                composable(
+                    route = "navigation.Search?filter={filter}",
+                    arguments = listOf(
+                        navArgument("filter") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                            nullable = true
+                        }
+                    )
+                ) {
+                    SearchScreen(navController)
+                }
                 composable<PostDetail> { backStackEntry ->
                     val postDetail: PostDetail = backStackEntry.toRoute()
                     PostDetailScreen(
