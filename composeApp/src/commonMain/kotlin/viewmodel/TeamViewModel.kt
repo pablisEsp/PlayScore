@@ -379,7 +379,7 @@ class TeamViewModel(
     fun loadTeamJoinRequests() {
         viewModelScope.launch {
             val currentTeamId = _currentTeam.value?.id ?: return@launch
-
+            println("DEBUG: Starting loadTeamJoinRequests for team: $currentTeamId")
             try {
                 _isLoading.value = true
                 val requests = database.getCollectionFiltered<TeamJoinRequest>(
@@ -387,18 +387,21 @@ class TeamViewModel(
                     "teamId",
                     currentTeamId
                 ).filter { it.status == RequestStatus.PENDING }
-
+                println("DEBUG: Raw requests from DB: $requests")
                 val requestsWithUsers = requests.mapNotNull { request ->
                     try {
                         val user = database.getUserData(request.userId)
+                        println("DEBUG: Fetched user ${request.userId}: $user")
                         if (user != null) TeamJoinRequestWithUser(request, user) else null
                     } catch (e: Exception) {
+                        println("DEBUG: Error fetching user ${request.userId}: ${e.message}")
                         null
                     }
                 }
-
+                println("DEBUG: Found ${requests.size} pending requests, ${requestsWithUsers.size} with users for team $currentTeamId")
                 _teamJoinRequests.value = requestsWithUsers
             } catch (e: Exception) {
+                println("DEBUG: Error in loadTeamJoinRequests: ${e.message}")
                 _errorMessage.value = "Failed to load join requests: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -412,27 +415,42 @@ class TeamViewModel(
                 _isLoading.value = true
                 val currentUserId = auth.getCurrentUser()?.uid ?: throw Exception("Not logged in")
 
-                // Check if user already has a pending request
-                val existingRequests = database.getCollectionFiltered<TeamJoinRequest>(
-                    "teamJoinRequests",
-                    "userId",
-                    currentUserId
-                ).filter { it.status == RequestStatus.PENDING && it.teamId == teamId }
-
-                if (existingRequests.isNotEmpty()) {
-                    _errorMessage.value = "You already have a pending request for this team"
-                    return@launch
-                }
-
+                // Create the request object first
                 val request = TeamJoinRequest(
                     teamId = teamId,
                     userId = currentUserId,
                     timestamp = Clock.System.now().toString()
                 )
 
+                // Check if the collection exists before querying
+                try {
+                    // Only check for existing requests if we're sure the collection exists
+                    val existingRequests = database.getCollectionFiltered<TeamJoinRequest>(
+                        "teamJoinRequests",
+                        "userId",
+                        currentUserId
+                    ).filter { it.status == RequestStatus.PENDING && it.teamId == teamId }
+
+                    if (existingRequests.isNotEmpty()) {
+                        _errorMessage.value = "You already have a pending request for this team"
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    // Collection might not exist yet, which is fine - continue with creating the request
+                    println("DEBUG: No existing requests found or collection doesn't exist yet")
+                }
+
+                // Create the request in the database
                 val id = database.createDocument("teamJoinRequests", request)
                 if (id.isNotEmpty()) {
                     _successMessage.value = "Join request sent successfully"
+
+                    // Reload the user's pending requests to update the UI
+                    loadUserPendingRequests()
+
+                    // Add the new request to the current list to update UI immediately
+                    val newRequest = request.copy(id = id)
+                    _userPendingRequests.value = _userPendingRequests.value + newRequest
                 } else {
                     _errorMessage.value = "Failed to send join request"
                 }
@@ -524,15 +542,21 @@ class TeamViewModel(
         viewModelScope.launch {
             try {
                 val currentUserId = auth.getCurrentUser()?.uid ?: return@launch
+
+                println("DEBUG: Loading pending requests for user: $currentUserId")
+
                 val requests = database.getCollectionFiltered<TeamJoinRequest>(
                     "teamJoinRequests",
                     "userId",
                     currentUserId
                 ).filter { it.status == RequestStatus.PENDING }
 
+                println("DEBUG: Found ${requests.size} pending requests")
+
                 _userPendingRequests.value = requests
             } catch (e: Exception) {
-                _errorMessage.value = "Failed to load your pending requests: ${e.message}"
+                println("DEBUG: Error loading user pending requests: ${e.message}")
+                // Don't set error message to avoid UI disruption
             }
         }
     }

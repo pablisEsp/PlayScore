@@ -37,148 +37,113 @@ fun TeamMembers(
 ) {
     val teamMembersState by viewModel.teamMembers.collectAsState()
 
-
-    LaunchedEffect(teamMembersState) {
-        println("DEBUG: TeamMembersState is now: $teamMembersState")
-    }
-
     LaunchedEffect(team.id) {
-        println("DEBUG: Loading team members for team: ${team.id}")
         viewModel.loadTeamMembers(team)
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "Team Members",
-                style = MaterialTheme.typography.titleMedium
-            )
+    when (val state = teamMembersState) {
+        is TeamViewModel.TeamMembersState.Loading -> {
+            Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                LinearProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
+        }
 
-            Spacer(modifier = Modifier.height(8.dp))
+        is TeamViewModel.TeamMembersState.Success -> {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // President section
+                state.president?.let { president ->
+                    MemberSection("President", listOf(president))
+                }
 
-            when (val members = teamMembersState) {
-                is TeamViewModel.TeamMembersState.Loading -> {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                // Vice President section
+                state.vicePresident?.let { vp ->
+                    MemberSection("Vice President", listOf(vp))
                 }
-                is TeamViewModel.TeamMembersState.Success -> {
-                    TeamMembersList(
-                        president = members.president,
-                        vicePresident = members.vicePresident,
-                        captains = members.captains,
-                        players = members.players
-                    )
+
+                // Captains section
+                if (state.captains.isNotEmpty()) {
+                    MemberSection("Captains", state.captains)
                 }
-                is TeamViewModel.TeamMembersState.Error -> {
+
+                // Regular players section
+                if (state.players.isNotEmpty()) {
+                    MemberSection("Players", state.players)
+                }
+
+                if (state.president == null && state.vicePresident == null &&
+                    state.captains.isEmpty() && state.players.isEmpty()) {
                     Text(
-                        "Failed to load team members: ${members.message}",
-                        color = MaterialTheme.colorScheme.error
+                        "No team members found",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
-                else -> {} // Empty initial state
             }
         }
+
+        is TeamViewModel.TeamMembersState.Error -> {
+            Text(
+                "Error: ${state.message}",
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+
+        else -> { /* Initial state - show nothing */ }
     }
 }
 
 @Composable
-fun TeamMembersList(
-    president: User?,
-    vicePresident: User?,
-    captains: List<User>,
-    players: List<User>
-) {
-    // President
-    president?.let {
-        MemberItem(user = it, role = "President")
-    }
-
-    // Vice President
-    vicePresident?.let {
-        MemberItem(user = it, role = "Vice President")
-    }
-
-    // Captains
-    if (captains.isNotEmpty()) {
+fun MemberSection(title: String, members: List<User>) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
-            "Captains",
-            style = MaterialTheme.typography.bodyMedium,
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            modifier = Modifier.padding(bottom = 8.dp)
         )
-        captains.forEach { captain ->
-            MemberItem(user = captain, role = "Captain")
-        }
-    }
 
-    // Players
-    if (players.isNotEmpty()) {
-        Text(
-            "Players",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-        )
-        players.forEach { player ->
-            MemberItem(user = player)
+        members.forEach { member ->
+            MemberItem(member)
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-fun MemberItem(user: User, role: String? = null) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+fun MemberItem(user: User) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp)
     ) {
-        // User avatar
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = user.name.take(1).uppercase(),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // User info
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = user.name,
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Text(
-                text = "@${user.username}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        // Role badge
-        role?.let {
+            // User avatar/initials
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(user.name.take(1).uppercase())
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // User details
+            Column {
                 Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    text = user.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "@${user.username}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

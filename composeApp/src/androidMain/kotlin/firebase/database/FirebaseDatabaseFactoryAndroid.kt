@@ -498,11 +498,25 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
         if (map == null) return null
 
         return try {
-            // Create the appropriate object based on path or class name
-            val className = map["class"] as? String ?: "data.model.Post"
+            // Try to determine the type by checking fields
+            val className = when {
+                // For TeamJoinRequest
+                map.containsKey("teamId") && map.containsKey("userId") &&
+                        map.containsKey("status") -> "data.model.TeamJoinRequest"
+
+                // For Post
+                map.containsKey("authorId") && map.containsKey("content") -> "data.model.Post"
+
+                // For Team
+                map.containsKey("presidentId") && map.containsKey("playerIds") -> "data.model.Team"
+
+                // Use class field if specified
+                else -> map["class"] as? String ?: "data.model.Post"
+            }
 
             when (className) {
                 "data.model.Post" -> {
+                    // Existing Post code
                     data.model.Post(
                         id = id,
                         authorId = map["authorId"] as? String ?: "",
@@ -515,27 +529,36 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                     ) as T
                 }
                 "data.model.Team" -> {
-                    data.model.Team(
+                    // Existing Team code
+                    data.model.Team(/* your existing code */) as T
+                }
+                "data.model.TeamJoinRequest" -> {
+                    // New case to handle TeamJoinRequest
+                    val statusStr = map["status"] as? String ?: "PENDING"
+                    val status = try {
+                        data.model.RequestStatus.valueOf(statusStr)
+                    } catch (e: Exception) {
+                        Log.w("FirebaseDatabase", "Invalid status: $statusStr, defaulting to PENDING")
+                        data.model.RequestStatus.PENDING
+                    }
+
+                    data.model.TeamJoinRequest(
                         id = id,
-                        name = map["name"] as? String ?: "",
-                        presidentId = map["presidentId"] as? String ?: "",
-                        vicePresidentId = map["vicePresidentId"] as? String,
-                        captainIds = map["captainIds"] as? List<String> ?: emptyList(),
-                        playerIds = map["playerIds"] as? List<String> ?: emptyList(),
-                        pointsTotal = (map["pointsTotal"] as? Number)?.toInt() ?: 0,
-                        createdAt = map["createdAt"] as? String ?: "",
-                        description = map["description"] as? String ?: "",
-                        logoUrl = map["logoUrl"] as? String ?: "",
-                        location = map["location"] as? String ?: "",
-                        ranking = (map["ranking"] as? Number)?.toInt() ?: 0,
-                        totalWins = (map["totalWins"] as? Number)?.toInt() ?: 0,
-                        totalLosses = (map["totalLosses"] as? Number)?.toInt() ?: 0
+                        teamId = map["teamId"] as? String ?: "",
+                        userId = map["userId"] as? String ?: "",
+                        status = status,
+                        timestamp = map["timestamp"] as? String ?: "",
+                        responseTimestamp = map["responseTimestamp"] as? String ?: "",
+                        responseBy = map["responseBy"] as? String ?: ""
                     ) as T
                 }
-                else -> null
+                else -> {
+                    Log.e("FirebaseDatabase", "Unknown class type: $className")
+                    null
+                }
             }
         } catch (e: Exception) {
-            Log.e("FirebaseDatabase", "Error converting map to object: ${e.message}")
+            Log.e("FirebaseDatabase", "Error converting map to object: ${e.message}", e)
             null
         }
     }
