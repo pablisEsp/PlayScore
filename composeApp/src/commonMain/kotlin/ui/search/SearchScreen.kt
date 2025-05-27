@@ -20,9 +20,11 @@ import androidx.navigation.NavController
 import data.model.Team
 import data.model.User
 import org.koin.compose.koinInject
+import ui.team.TeamJoinRequestButton
 import viewmodel.SearchFilter
 import viewmodel.SearchResult
 import viewmodel.SearchViewModel
+import viewmodel.TeamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,7 +163,15 @@ fun SearchScreen(
 }
 
 @Composable
-fun TeamSearchItem(team: Team, navController: NavController) {
+fun TeamSearchItem(
+    team: Team,
+    navController: NavController,
+    teamViewModel: TeamViewModel = koinInject()
+) {
+    // Get current user's team ID
+    val currentUser by teamViewModel.currentUser.collectAsState()
+    val currentUserTeamId = currentUser?.teamMembership?.teamId
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -223,6 +233,19 @@ fun TeamSearchItem(team: Team, navController: NavController) {
                     )
                 }
             }
+        }
+
+        // Add the join request button with proper padding
+        Spacer(modifier = Modifier.height(12.dp))
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            TeamJoinRequestButton(
+                team = team,
+                currentUserTeamId = currentUserTeamId,
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
         }
     }
 }

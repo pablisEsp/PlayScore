@@ -190,6 +190,12 @@ fun TeamDetails(
                 }
             }
 
+            val currentUser by viewModel.currentUser.collectAsState()
+            val currentUserId = currentUser?.id
+            if (!currentUserId.isNullOrEmpty()) {
+                TeamJoinRequests(team, currentUserId)
+            }
+
             // More team functionalities can be added here
             TeamMembers(team)
 
@@ -216,7 +222,7 @@ fun TeamDetails(
 }
 
 @Composable
-private fun StatItem(label: String, value: String) {
+fun StatItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,

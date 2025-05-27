@@ -2,7 +2,9 @@ package viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import data.model.RequestStatus
 import data.model.Team
+import data.model.TeamJoinRequest
 import data.model.TeamRole
 import data.model.TeamMembership
 import data.model.User
@@ -345,7 +347,6 @@ class TeamViewModel(
         return if (success) updatedTeam else null
     }
 
-
     sealed class TeamMembersState {
         object Initial : TeamMembersState()
         object Loading : TeamMembersState()
@@ -363,6 +364,203 @@ class TeamViewModel(
         data object NavigateToCreateTeam : TeamNavigationEvent()
         data object None : TeamNavigationEvent()
     }
+
+    // ----------------- TEAM JOINING ---------------- //
+
+    // Add these to your TeamViewModel.kt
+    private val _teamJoinRequests = MutableStateFlow<List<TeamJoinRequestWithUser>>(emptyList())
+    val teamJoinRequests: StateFlow<List<TeamJoinRequestWithUser>> = _teamJoinRequests.asStateFlow()
+
+    data class TeamJoinRequestWithUser(
+        val request: TeamJoinRequest,
+        val user: User
+    )
+
+    fun loadTeamJoinRequests() {
+        viewModelScope.launch {
+            val currentTeamId = _currentTeam.value?.id ?: return@launch
+
+            try {
+                _isLoading.value = true
+                val requests = database.getCollectionFiltered<TeamJoinRequest>(
+                    "teamJoinRequests",
+                    "teamId",
+                    currentTeamId
+                ).filter { it.status == RequestStatus.PENDING }
+
+                val requestsWithUsers = requests.mapNotNull { request ->
+                    try {
+                        val user = database.getUserData(request.userId)
+                        if (user != null) TeamJoinRequestWithUser(request, user) else null
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                _teamJoinRequests.value = requestsWithUsers
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load join requests: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun createJoinRequest(teamId: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val currentUserId = auth.getCurrentUser()?.uid ?: throw Exception("Not logged in")
+
+                // Check if user already has a pending request
+                val existingRequests = database.getCollectionFiltered<TeamJoinRequest>(
+                    "teamJoinRequests",
+                    "userId",
+                    currentUserId
+                ).filter { it.status == RequestStatus.PENDING && it.teamId == teamId }
+
+                if (existingRequests.isNotEmpty()) {
+                    _errorMessage.value = "You already have a pending request for this team"
+                    return@launch
+                }
+
+                val request = TeamJoinRequest(
+                    teamId = teamId,
+                    userId = currentUserId,
+                    timestamp = Clock.System.now().toString()
+                )
+
+                val id = database.createDocument("teamJoinRequests", request)
+                if (id.isNotEmpty()) {
+                    _successMessage.value = "Join request sent successfully"
+                } else {
+                    _errorMessage.value = "Failed to send join request"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun handleJoinRequest(requestId: String, approve: Boolean) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val currentUserId = auth.getCurrentUser()?.uid ?: throw Exception("Not logged in")
+
+                // Get the request
+                val request = database.getDocument<TeamJoinRequest>("teamJoinRequests/$requestId")
+                    ?: throw Exception("Request not found")
+
+                // Check user's team role
+                val currentTeam = _currentTeam.value ?: throw Exception("Team not found")
+                val isPresident = currentTeam.presidentId == currentUserId
+                val isVicePresident = currentTeam.vicePresidentId == currentUserId
+
+                if (!isPresident && !isVicePresident) {
+                    throw Exception("Only team leaders can approve requests")
+                }
+
+                val updatedRequest = request.copy(
+                    status = if (approve) RequestStatus.APPROVED else RequestStatus.REJECTED,
+                    responseTimestamp = Clock.System.now().toString(),
+                    responseBy = currentUserId
+                )
+
+                val success = database.updateDocument("teamJoinRequests", requestId, updatedRequest)
+
+                if (success && approve) {
+                    // Add user to team
+                    val updatedPlayerIds = currentTeam.playerIds + request.userId
+                    val updatedTeam = currentTeam.copy(playerIds = updatedPlayerIds)
+
+                    val teamUpdateSuccess = database.updateDocument("teams", currentTeam.id, updatedTeam)
+
+                    if (teamUpdateSuccess) {
+                        // Update the user's team membership
+                        val teamMembership = TeamMembership(
+                            teamId = currentTeam.id,
+                            role = TeamRole.PLAYER
+                        )
+
+                        val userUpdateSuccess = database.updateUserData(
+                            request.userId,
+                            mapOf("teamMembership" to teamMembership)
+                        )
+
+                        if (userUpdateSuccess) {
+                            _successMessage.value = if (approve) "Request approved" else "Request rejected"
+                            _currentTeam.value = updatedTeam
+                            loadTeamJoinRequests() // Refresh requests
+                            loadTeamMembers(updatedTeam) // Refresh members
+                        } else {
+                            _errorMessage.value = "Failed to update user data"
+                        }
+                    } else {
+                        _errorMessage.value = "Failed to update team"
+                    }
+                } else if (success) {
+                    _successMessage.value = "Request rejected"
+                    loadTeamJoinRequests() // Refresh requests
+                } else {
+                    _errorMessage.value = "Failed to update request"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Add to TeamViewModel.kt
+    private val _userPendingRequests = MutableStateFlow<List<TeamJoinRequest>>(emptyList())
+    val userPendingRequests: StateFlow<List<TeamJoinRequest>> = _userPendingRequests.asStateFlow()
+
+    // Load user's pending requests
+    fun loadUserPendingRequests() {
+        viewModelScope.launch {
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid ?: return@launch
+                val requests = database.getCollectionFiltered<TeamJoinRequest>(
+                    "teamJoinRequests",
+                    "userId",
+                    currentUserId
+                ).filter { it.status == RequestStatus.PENDING }
+
+                _userPendingRequests.value = requests
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load your pending requests: ${e.message}"
+            }
+        }
+    }
+
+    // Cancel join request
+    fun cancelJoinRequest(requestId: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val success = database.deleteDocument("teamJoinRequests", requestId)
+
+                if (success) {
+                    // Update the local state by removing the canceled request
+                    _userPendingRequests.value = _userPendingRequests.value.filter { it.id != requestId }
+                    _successMessage.value = "Join request canceled"
+                } else {
+                    _errorMessage.value = "Failed to cancel join request"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error canceling request: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // ----------------------------------------------- //
+
 
     private val _navigationEvent = MutableStateFlow<TeamNavigationEvent>(TeamNavigationEvent.None)
     val navigationEvent: StateFlow<TeamNavigationEvent> = _navigationEvent.asStateFlow()
