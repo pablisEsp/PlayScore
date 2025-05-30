@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import data.model.RequestStatus
 import data.model.Team
 import data.model.TeamJoinRequest
-import data.model.TeamRole
 import data.model.TeamMembership
+import data.model.TeamRole
 import data.model.User
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
-import kotlin.toString
 
 class TeamViewModel(
     private val auth: FirebaseAuthInterface,
@@ -322,6 +321,41 @@ class TeamViewModel(
                     return@launch
                 }
 
+                // Handle the special case first: empty newPresidentId means last member case
+                if (newPresidentId.isEmpty() ||
+                    (team.playerIds.size == 1 && team.playerIds.contains(currentUserId) &&
+                            team.presidentId == currentUserId)) {
+
+                    // Delete the team since the president is the last member
+                    val teamDeleted = database.deleteDocument("teams", team.id)
+
+                    if (!teamDeleted) {
+                        _errorMessage.value = "Failed to delete empty team"
+                        return@launch
+                    }
+
+                    // Clear user's team membership
+                    val clearSuccess = database.updateUserData(
+                        currentUserId,
+                        mapOf("teamMembership" to null)
+                    )
+
+                    if (!clearSuccess) {
+                        _errorMessage.value = "Failed to clear your team membership"
+                        return@launch
+                    }
+
+                    // Update local state & navigate
+                    _currentUser.value = _currentUser.value?.copy(teamMembership = null)
+                    _currentTeam.value = null
+                    _teamMembers.value = TeamMembersState.Initial
+                    _successMessage.value = "Team deleted as you were the last member"
+                    _navigationEvent.value = TeamNavigationEvent.NavigateToCreateTeam
+
+                    return@launch
+                }
+
+                // Regular presidency transfer for teams with multiple members
                 println("DEBUG: Transferring presidency from $currentUserId to $newPresidentId")
 
                 // STEP 1: Update team document FIRST to change presidentId

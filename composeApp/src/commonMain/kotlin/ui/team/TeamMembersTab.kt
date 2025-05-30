@@ -65,13 +65,44 @@ fun TeamMembersTab(
 
     // Rest of your code remains the same, but use activeTeam instead of team
     if (showPresidentLeaveWarning) {
-        PresidentLeaveWarningDialog(
-            onDismiss = { viewModel.resetLeaveWarning() },
-            onConfirm = {
-                viewModel.resetLeaveWarning()
-                showTransferDialog = true
-            }
-        )
+        val isLastMember = team.playerIds.size == 1 && team.playerIds.contains(currentUser?.id)
+
+        if (isLastMember) {
+            // Special dialog for last member
+            AlertDialog(
+                onDismissRequest = { viewModel.resetLeaveWarning() },
+                title = { Text("Delete Team") },
+                text = { Text("You are the last member of this team. The team will be deleted. Continue?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.transferPresidencyAndLeave("") // Empty string signals it's the last member case
+                            viewModel.resetLeaveWarning()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    ) {
+                        Text("Delete Team")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.resetLeaveWarning() }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        } else {
+            // Standard warning for presidents with team members
+            PresidentLeaveWarningDialog(
+                onDismiss = { viewModel.resetLeaveWarning() },
+                onConfirm = {
+                    viewModel.resetLeaveWarning()
+                    showTransferDialog = true
+                }
+            )
+        }
     }
 
     if (showTransferDialog) {
