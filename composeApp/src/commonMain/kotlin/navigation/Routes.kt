@@ -12,7 +12,7 @@ data object Register
 data object Home
 
 @Serializable
-data class Search(val filter: String = "")
+data object Search
 
 @Serializable
 data object Team
