@@ -28,6 +28,9 @@ class TeamViewModel(
     private val _currentTeam = MutableStateFlow<Team?>(null)
     val currentTeam: StateFlow<Team?> = _currentTeam.asStateFlow()
 
+    private val _refreshTrigger = MutableStateFlow(0)
+    val refreshTrigger: StateFlow<Int> = _refreshTrigger.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -46,6 +49,22 @@ class TeamViewModel(
     // Team members state
     private val _teamMembers = MutableStateFlow<TeamMembersState>(TeamMembersState.Initial)
     val teamMembers: StateFlow<TeamMembersState> = _teamMembers
+
+    // Navigation event for team-related actions
+    sealed class TeamNavigationEvent {
+        data class NavigateToTeam(val teamId: String = "") : TeamNavigationEvent()
+        object NavigateToCreateTeam : TeamNavigationEvent()
+        object None : TeamNavigationEvent()
+    }
+
+    // Add this property to your class
+    private val _navigationEvent = MutableStateFlow<TeamNavigationEvent>(TeamNavigationEvent.None)
+    val navigationEvent: StateFlow<TeamNavigationEvent> = _navigationEvent.asStateFlow()
+
+    // Add this method to reset navigation after handling
+    fun onNavigationEventProcessed() {
+        _navigationEvent.value = TeamNavigationEvent.None
+    }
 
     fun getCurrentUserData() {
         viewModelScope.launch {
@@ -167,14 +186,17 @@ class TeamViewModel(
     fun loadTeamMembers(team: Team) {
         viewModelScope.launch {
             _teamMembers.value = TeamMembersState.Loading
-            println("DEBUG: Loading team members for team ID: ${team.id}")
-            println("DEBUG: President ID: ${team.presidentId}")
-            println("DEBUG: Vice President ID: ${team.vicePresidentId}")
-            println("DEBUG: Captain IDs: ${team.captainIds}")
-            println("DEBUG: Player IDs: ${team.playerIds}")
-
 
             try {
+                // Update the current team in the ViewModel to ensure it's the latest
+                _currentTeam.value = team
+
+                // First, get a fresh copy of the team from the database
+                val freshTeam = database.getDocument<Team>("teams/${team.id}") ?: team
+
+                // Important: Update the currentTeam value with fresh data
+                _currentTeam.value = freshTeam
+
                 // Load president (only if ID is not empty)
                 val president = if (team.presidentId.isNotBlank()) {
                     val user = database.getUserData(team.presidentId)
@@ -215,84 +237,70 @@ class TeamViewModel(
                     captains = captains,
                     players = players
                 )
+
+
             } catch (e: Exception) {
                 _teamMembers.value = TeamMembersState.Error(e.message ?: "Unknown error")
             }
         }
     }
 
+    private val _showPresidentLeaveWarning = MutableStateFlow(false)
+    val showPresidentLeaveWarning: StateFlow<Boolean> = _showPresidentLeaveWarning.asStateFlow()
+
+    fun resetLeaveWarning() {
+        _showPresidentLeaveWarning.value = false
+    }
+
+
     fun leaveTeam() {
         viewModelScope.launch {
+            val currentUserId = auth.getCurrentUser()?.uid
+            val team = _currentTeam.value
+
+            if (currentUserId == null || team == null) {
+                _errorMessage.value = "Unable to leave team: missing data"
+                return@launch
+            }
+
+            // Presidents must transfer first
+            if (team.presidentId == currentUserId) {
+                _showPresidentLeaveWarning.value = true
+                return@launch
+            }
+
             _isLoading.value = true
             try {
-                val currentUserId = auth.getCurrentUser()?.uid
-                if (currentUserId == null) {
-                    _errorMessage.value = "User not authenticated"
+                // Remove user from the appropriate team role
+                val updatedTeam = when {
+                    team.vicePresidentId == currentUserId -> team.copy(vicePresidentId = null)
+                    currentUserId in team.captainIds    -> team.copy(captainIds = team.captainIds.filter { it != currentUserId })
+                    else                                -> team.copy(playerIds  = team.playerIds.filter  { it != currentUserId })
+                }
+
+                // Update team document
+                val teamSuccess = database.updateDocument("teams", team.id, updatedTeam)
+                if (!teamSuccess) {
+                    _errorMessage.value = "Failed to update team membership"
                     return@launch
                 }
 
-                val team = _currentTeam.value
-                if (team == null) {
-                    _errorMessage.value = "No team data available"
-                    return@launch
-                }
-
-                // Check if user is the only member in the team
-                val isOnlyMember = team.playerIds.size == 1 &&
-                        team.playerIds.contains(currentUserId) &&
-                        team.presidentId == currentUserId &&
-                        team.captainIds.isEmpty() &&
-                        team.vicePresidentId == null
-
-                // Track if team was deleted for proper navigation later
-                var teamWasDeleted = false
-
-                if (isOnlyMember) {
-                    // Delete the team if user is the only member
-                    val success = database.deleteDocument("teams", team.id)
-                    if (!success) {
-                        _errorMessage.value = "Failed to delete team"
-                        return@launch
-                    }
-                } else if (team.presidentId == currentUserId) {
-                    // User is president but not alone - must transfer presidency
-                    val updatedTeam = transferPresidency(team, currentUserId)
-                    if (updatedTeam == null) {
-                        _errorMessage.value = "Failed to transfer team leadership"
-                        return@launch
-                    }
-                } else {
-                    // User is regular member - just remove from team lists
-                    val updatedTeam = removeUserFromTeam(team, currentUserId)
-                    if (updatedTeam == null) {
-                        _errorMessage.value = "Failed to update team"
-                        return@launch
-                    }
-                }
-
-                // Update user's team membership to an empty object instead of null
-                val emptyTeamMembership = TeamMembership(
-                    teamId = "",
-                    role = TeamRole.PLAYER
+                // Clear teamMembership on user profile
+                val userSuccess = database.updateUserData(
+                    currentUserId,
+                    mapOf("teamMembership" to null)
                 )
-
-                val success = database.updateUserData(currentUserId, mapOf("teamMembership" to emptyTeamMembership))
-                if (success) {
-                    // Update local state
-                    _currentUser.value = _currentUser.value?.copy(teamMembership = emptyTeamMembership)
-                    _currentTeam.value = null
-                    _teamMembers.value = TeamMembersState.Initial
-                    _successMessage.value = "Successfully left the team"
-
-                    // Navigate to create team screen if team was deleted
-                    if (teamWasDeleted) {
-                        _navigationEvent.value = TeamNavigationEvent.NavigateToCreateTeam
-                    } else {
-                        _navigationEvent.value = TeamNavigationEvent.NavigateToTeam("")
-                    }
-                } else {
-                    _errorMessage.value = "Failed to update user data"
+                if (!userSuccess) {
+                    _errorMessage.value = "Failed to update user profile"
+                    return@launch
                 }
+
+                // Update local state and navigate
+                _currentUser.value    = _currentUser.value?.copy(teamMembership = null)
+                _currentTeam.value    = null
+                _teamMembers.value    = TeamMembersState.Initial
+                _successMessage.value = "Successfully left the team"
+                _navigationEvent.value = TeamNavigationEvent.NavigateToCreateTeam
 
             } catch (e: Exception) {
                 _errorMessage.value = "Error leaving team: ${e.message}"
@@ -302,49 +310,302 @@ class TeamViewModel(
         }
     }
 
-    private suspend fun transferPresidency(team: Team, currentUserId: String): Team? {
-        // Find the next highest role member
-        val newPresidentId = when {
-            // Vice president gets priority
-            !team.vicePresidentId.isNullOrBlank() -> team.vicePresidentId
-            // Then captains
-            team.captainIds.isNotEmpty() -> team.captainIds.first()
-            // Then regular players
-            team.playerIds.isNotEmpty() ->
-                team.playerIds.firstOrNull { it != currentUserId }
-            else -> null
+    fun transferPresidencyAndLeave(newPresidentId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid
+                val team = _currentTeam.value
+
+                if (currentUserId == null || team == null) {
+                    _errorMessage.value = "Missing data to transfer presidency"
+                    return@launch
+                }
+
+                println("DEBUG: Transferring presidency from $currentUserId to $newPresidentId")
+
+                // STEP 1: Update team document FIRST to change presidentId
+                val updatedTeam = team.copy(
+                    presidentId = newPresidentId,
+                    // If VP becomes president, clear VP role
+                    vicePresidentId = if (team.vicePresidentId == newPresidentId) null else team.vicePresidentId,
+                    // If captain becomes president, remove from captains list
+                    captainIds = team.captainIds.filterNot { it == newPresidentId },
+                    // Remove the current president (who is leaving) from playerIds
+                    playerIds = team.playerIds.filterNot { it == currentUserId }
+                )
+
+                val teamUpdated = database.updateDocument("teams", team.id, updatedTeam)
+                if (!teamUpdated) {
+                    _errorMessage.value = "Failed to update team"
+                    return@launch
+                }
+
+                // STEP 2: Now that the team document shows the new president,
+                // update the new president's role
+                val newPresidentUpdate = database.updateUserData(
+                    newPresidentId,
+                    mapOf("teamMembership" to TeamMembership(teamId = team.id, role = TeamRole.PRESIDENT))
+                )
+
+                if (!newPresidentUpdate) {
+                    _errorMessage.value = "Failed to update new president's role"
+                    return@launch
+                }
+
+                // STEP 3: Finally, clear former president's membership
+                val clearSuccess = database.updateUserData(
+                    currentUserId,
+                    mapOf("teamMembership" to null)
+                )
+
+                if (!clearSuccess) {
+                    _errorMessage.value = "Failed to clear your team membership"
+                    return@launch
+                }
+
+                // Update local state & navigate
+                _currentUser.value = _currentUser.value?.copy(teamMembership = null)
+                _currentTeam.value = null
+                _teamMembers.value = TeamMembersState.Initial
+                _successMessage.value = "Presidency transferred successfully"
+                _navigationEvent.value = TeamNavigationEvent.NavigateToCreateTeam
+
+            } catch (e: Exception) {
+                _errorMessage.value = "Error transferring presidency: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
         }
-
-        if (newPresidentId == null) return null
-
-        // Create new player list without the current user
-        val newPlayerIds = team.playerIds.filter { it != currentUserId }
-
-        // Create updated team
-        val updatedTeam = team.copy(
-            presidentId = newPresidentId,
-            // If VP becomes president, clear VP role
-            vicePresidentId = if (newPresidentId == team.vicePresidentId) null else team.vicePresidentId,
-            // If captain becomes president, remove from captains list
-            captainIds = if (team.captainIds.contains(newPresidentId))
-                team.captainIds.filter { it != newPresidentId }
-            else team.captainIds,
-            playerIds = newPlayerIds
-        )
-
-        val success = database.updateDocument("teams", team.id, updatedTeam)
-        return if (success) updatedTeam else null
     }
 
-    private suspend fun removeUserFromTeam(team: Team, currentUserId: String): Team? {
-        val updatedTeam = team.copy(
-            captainIds = team.captainIds.filter { it != currentUserId },
-            playerIds = team.playerIds.filter { it != currentUserId },
-            vicePresidentId = if (team.vicePresidentId == currentUserId) null else team.vicePresidentId
-        )
+    fun kickUser(user: User, team: Team) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid
 
-        val success = database.updateDocument("teams", team.id, updatedTeam)
-        return if (success) updatedTeam else null
+                println("DEBUG: Starting kick operation for user ${user.id}")
+                println("DEBUG: Using team: ${team.id}")
+
+                if (currentUserId == null) {
+                    _errorMessage.value = "Missing data to kick user"
+                    return@launch
+                }
+
+                // Set the current team before proceeding
+                _currentTeam.value = team
+
+                // Update the team document first
+                println("DEBUG: Updating team document")
+                val updatedTeam = team.copy(
+                    vicePresidentId = if (team.vicePresidentId == user.id) null else team.vicePresidentId,
+                    captainIds = team.captainIds.filterNot { it == user.id },
+                    playerIds = team.playerIds.filterNot { it == user.id }
+                )
+
+                val teamSuccess = database.updateDocument("teams", team.id, updatedTeam)
+                println("DEBUG: Team update result: $teamSuccess")
+
+                if (!teamSuccess) {
+                    _errorMessage.value = "Failed to update team"
+                    return@launch
+                }
+
+                // Then update the user's membership
+                println("DEBUG: Updating user's team membership")
+                val userSuccess = database.updateUserData(
+                    user.id,
+                    mapOf("teamMembership" to null)
+                )
+
+                println("DEBUG: User update result: $userSuccess")
+
+                if (userSuccess) {
+                    _successMessage.value = "User ${user.name} has been removed from the team"
+                } else {
+                    // Even when user update fails, we still need to update the UI
+                    _successMessage.value = "User was removed from team roster"
+                    // Log the error but continue
+                    println("DEBUG: Failed to update user membership, but team was updated")
+                }
+
+                // ALWAYS update UI regardless of user document update success
+                // Get fresh team data directly from database
+                val freshTeam = database.getDocument<Team>("teams/${team.id}")
+                if (freshTeam != null) {
+                    // Update the local state with fresh data from database
+                    _currentTeam.value = freshTeam
+                    loadTeamMembers(freshTeam)
+                } else {
+                    // Fallback to our local updated copy
+                    _currentTeam.value = updatedTeam
+                    loadTeamMembers(updatedTeam)
+                }
+
+                // Force UI refresh
+                _refreshTrigger.value += 1
+
+            } catch (e: Exception) {
+                println("DEBUG: Exception in kickUser: ${e.message}")
+                e.printStackTrace()
+                _errorMessage.value = "Error kicking user: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun changeUserRole(user: User, newRole: TeamRole) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid
+                val team = _currentTeam.value
+
+                if (currentUserId == null || team == null) {
+                    _errorMessage.value = "Unable to change role: missing data"
+                    return@launch
+                }
+
+                // Verify current user is president
+                if (team.presidentId != currentUserId) {
+                    _errorMessage.value = "Only team president can change roles"
+                    return@launch
+                }
+
+                // Don't allow changing the president's role
+                if (user.id == team.presidentId) {
+                    _errorMessage.value = "Cannot change president's role"
+                    return@launch
+                }
+
+                // Create updated team object
+                val updatedTeam = when (newRole) {
+                    TeamRole.PRESIDENT -> {
+                        // Transfer presidency - current president becomes regular player
+                        team.copy(
+                            presidentId = user.id,
+                            // If VP becomes president, clear VP role
+                            vicePresidentId = if (user.id == team.vicePresidentId) null else team.vicePresidentId,
+                            // If captain becomes president, remove from captains list
+                            captainIds = team.captainIds.filter { it != user.id },
+                            // Add former president to regular players if not already there
+                            playerIds = if (currentUserId in team.playerIds)
+                                team.playerIds
+                            else
+                                team.playerIds + currentUserId
+                        )
+                    }
+                    TeamRole.VICE_PRESIDENT -> {
+                        // Make user vice president, handle previous VP if exists
+                        val currentVP = team.vicePresidentId
+
+                        // Remove user from captain list if they were a captain
+                        val updatedCaptains = team.captainIds.filter { it != user.id }
+
+                        // If there was a different VP, demote them to captain
+                        val finalCaptains = if (currentVP != null && currentVP != user.id) {
+                            updatedCaptains + currentVP
+                        } else {
+                            updatedCaptains
+                        }
+
+                        team.copy(
+                            vicePresidentId = user.id,
+                            captainIds = finalCaptains
+                        )
+                    }
+                    TeamRole.CAPTAIN -> {
+                        // Make user captain, remove from VP if they were VP
+                        val updatedCaptains = if (user.id !in team.captainIds) {
+                            team.captainIds + user.id
+                        } else {
+                            team.captainIds
+                        }
+
+                        team.copy(
+                            vicePresidentId = if (team.vicePresidentId == user.id) null else team.vicePresidentId,
+                            captainIds = updatedCaptains
+                        )
+                    }
+                    TeamRole.PLAYER -> {
+                        // Demote user to regular player
+                        team.copy(
+                            vicePresidentId = if (team.vicePresidentId == user.id) null else team.vicePresidentId,
+                            captainIds = team.captainIds.filter { it != user.id }
+                        )
+                    }
+                }
+
+                // Update team in database
+                val teamSuccess = database.updateDocument("teams", team.id, updatedTeam)
+                if (!teamSuccess) {
+                    _errorMessage.value = "Failed to update team roles"
+                    return@launch
+                }
+
+                // Update user's role in their profile
+                val userUpdate = database.updateUserData(user.id, mapOf(
+                    "teamMembership" to TeamMembership(
+                        teamId = team.id,
+                        role = newRole
+                    )
+                ))
+
+                // If this was a presidency transfer, update the former president's role to player
+                if (newRole == TeamRole.PRESIDENT) {
+                    val formerPresidentUpdate = database.updateUserData(currentUserId, mapOf(
+                        "teamMembership" to TeamMembership(
+                            teamId = team.id,
+                            role = TeamRole.PLAYER
+                        )
+                    ))
+
+                    if (!formerPresidentUpdate) {
+                        _errorMessage.value = "Failed to update former president's role"
+                        return@launch
+                    }
+
+                    // Update current user in state
+                    _currentUser.value = _currentUser.value?.copy(
+                        teamMembership = TeamMembership(
+                            teamId = team.id,
+                            role = TeamRole.PLAYER
+                        )
+                    )
+
+                    // Add these lines to refresh UI after presidency transfer:
+                    _successMessage.value = "Presidency transferred successfully"
+
+                    // Update the current team in state
+                    _currentTeam.value = updatedTeam
+
+                    // Force reload of team members to reflect new roles
+                    loadTeamMembers(updatedTeam)
+
+                    // Refresh current user data to ensure UI shows updated state
+                    getCurrentUserData()
+
+                    // Navigation event to refresh the UI if needed
+                    _navigationEvent.value = TeamNavigationEvent.NavigateToTeam(team.id)
+                }
+
+                if (userUpdate) {
+                    _successMessage.value = "${user.name}'s role updated to ${newRole.name}"
+
+                    // Refresh team members list to show updated roles
+                    loadTeamMembers(updatedTeam)
+                } else {
+                    _errorMessage.value = "Failed to update user's role"
+                }
+
+            } catch (e: Exception) {
+                _errorMessage.value = "Error updating role: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     sealed class TeamMembersState {
@@ -359,11 +620,6 @@ class TeamViewModel(
         data class Error(val message: String) : TeamMembersState()
     }
 
-    sealed class TeamNavigationEvent {
-        data class NavigateToTeam(val teamId: String) : TeamNavigationEvent()
-        data object NavigateToCreateTeam : TeamNavigationEvent()
-        data object None : TeamNavigationEvent()
-    }
 
     // ----------------- TEAM JOINING ---------------- //
 
@@ -508,11 +764,25 @@ class TeamViewModel(
                             mapOf("teamMembership" to teamMembership)
                         )
 
-                        if (userUpdateSuccess) {
+                        if (teamUpdateSuccess && userUpdateSuccess) {
                             _successMessage.value = if (approve) "Request approved" else "Request rejected"
-                            _currentTeam.value = updatedTeam
-                            loadTeamJoinRequests() // Refresh requests
-                            loadTeamMembers(updatedTeam) // Refresh members
+
+                            // Get fresh team data from database to ensure we have the latest
+                            val freshTeam = database.getDocument<Team>("teams/${currentTeam.id}")
+                            if (freshTeam != null) {
+                                _currentTeam.value = freshTeam
+                                // Force reload with fresh data
+                                loadTeamMembers(freshTeam)
+                                loadTeamJoinRequests()
+                                // Force UI refresh by incrementing trigger
+                                _refreshTrigger.value += 1
+                            } else {
+                                // Fallback to using our local updated copy
+                                _currentTeam.value = updatedTeam
+                                loadTeamMembers(updatedTeam)
+                                loadTeamJoinRequests()
+                                _refreshTrigger.value += 1
+                            }
                         } else {
                             _errorMessage.value = "Failed to update user data"
                         }
@@ -521,7 +791,9 @@ class TeamViewModel(
                     }
                 } else if (success) {
                     _successMessage.value = "Request rejected"
-                    loadTeamJoinRequests() // Refresh requests
+                    // Even for rejections, refresh the data to update UI
+                    loadTeamJoinRequests()
+                    _refreshTrigger.value += 1
                 } else {
                     _errorMessage.value = "Failed to update request"
                 }
@@ -532,6 +804,7 @@ class TeamViewModel(
             }
         }
     }
+
 
     // Add to TeamViewModel.kt
     private val _userPendingRequests = MutableStateFlow<List<TeamJoinRequest>>(emptyList())
@@ -584,15 +857,6 @@ class TeamViewModel(
     }
 
     // ----------------------------------------------- //
-
-
-    private val _navigationEvent = MutableStateFlow<TeamNavigationEvent>(TeamNavigationEvent.None)
-    val navigationEvent: StateFlow<TeamNavigationEvent> = _navigationEvent.asStateFlow()
-
-    // function to reset the navigation event
-    fun onNavigationEventProcessed() {
-        _navigationEvent.value = TeamNavigationEvent.None
-    }
 
     fun setCurrentTeam(team: Team) {
         _currentTeam.value = team

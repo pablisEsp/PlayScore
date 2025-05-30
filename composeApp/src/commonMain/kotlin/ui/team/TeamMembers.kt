@@ -1,21 +1,21 @@
 package ui.team
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,11 +23,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import data.model.Team
+import data.model.TeamRole
 import data.model.User
 import org.koin.compose.koinInject
+import ui.components.RoleManagementDropdown
 import viewmodel.TeamViewModel
 
 @Composable
@@ -36,116 +37,202 @@ fun TeamMembers(
     viewModel: TeamViewModel = koinInject()
 ) {
     val teamMembersState by viewModel.teamMembers.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val refreshTrigger by viewModel.refreshTrigger.collectAsState()
+    val currentTeam by viewModel.currentTeam.collectAsState()
 
-    LaunchedEffect(team.id) {
-        viewModel.loadTeamMembers(team)
+    // Use the most current team data, falling back to the prop if null
+    val activeTeam = currentTeam ?: team
+
+    // Make sure currentUser is loaded
+    LaunchedEffect(activeTeam.id, refreshTrigger) {
+        viewModel.getCurrentUserData()
+        viewModel.loadTeamMembers(activeTeam)
     }
 
-    when (val state = teamMembersState) {
-        is TeamViewModel.TeamMembersState.Loading -> {
-            Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                LinearProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
-        }
+    // Use currentUser from ViewModel
+    val userId = currentUser?.id
 
-        is TeamViewModel.TeamMembersState.Success -> {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // President section
-                state.president?.let { president ->
-                    MemberSection("President", listOf(president))
-                }
+    // Debug info to help troubleshoot
+    println("DEBUG: TeamMembers - currentUserId = $userId")
+    println("DEBUG: TeamMembers - team.presidentId = ${team.presidentId}")
+    val isPresident = team.presidentId == userId
+    println("DEBUG: isPresident = $isPresident")
 
-                // Vice President section
-                state.vicePresident?.let { vp ->
-                    MemberSection("Vice President", listOf(vp))
-                }
 
-                // Captains section
-                if (state.captains.isNotEmpty()) {
-                    MemberSection("Captains", state.captains)
-                }
-
-                // Regular players section
-                if (state.players.isNotEmpty()) {
-                    MemberSection("Players", state.players)
-                }
-
-                if (state.president == null && state.vicePresident == null &&
-                    state.captains.isEmpty() && state.players.isEmpty()) {
-                    Text(
-                        "No team members found",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(16.dp)
-                    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when (teamMembersState) {
+            is TeamViewModel.TeamMembersState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
             }
-        }
+            is TeamViewModel.TeamMembersState.Error -> {
+                Text(
+                    text = "Error: ${(teamMembersState as TeamViewModel.TeamMembersState.Error).message}",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            is TeamViewModel.TeamMembersState.Success -> {
+                val membersState = teamMembersState as TeamViewModel.TeamMembersState.Success
 
-        is TeamViewModel.TeamMembersState.Error -> {
+                LazyColumn(
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    // President Section
+                    membersState.president?.let { president ->
+                        item {
+                            TeamRoleHeader("President")
+                            TeamMemberItem(
+                                user = president,
+                                team = team,
+                                currentUserId = userId,
+                                onRoleChanged = { user, role ->
+                                    viewModel.changeUserRole(user, role)
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
+
+                    // Vice President Section
+                    membersState.vicePresident?.let { vicePresident ->
+                        item {
+                            TeamRoleHeader("Vice President")
+                            TeamMemberItem(
+                                user = vicePresident,
+                                team = team,
+                                currentUserId = userId,
+                                onRoleChanged = { user, role ->
+                                    viewModel.changeUserRole(user, role)
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
+
+                    // Captains Section
+                    if (membersState.captains.isNotEmpty()) {
+                        item {
+                            TeamRoleHeader("Captains")
+                        }
+                        items(membersState.captains) { captain ->
+                            TeamMemberItem(
+                                user = captain,
+                                team = team,
+                                currentUserId = userId,
+                                onRoleChanged = { user, role ->
+                                    viewModel.changeUserRole(user, role)
+                                }
+                            )
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
+
+                    // Players Section
+                    if (membersState.players.isNotEmpty()) {
+                        item {
+                            TeamRoleHeader("Players")
+                        }
+                        items(membersState.players) { player ->
+                            TeamMemberItem(
+                                user = player,
+                                team = team,
+                                currentUserId = userId,
+                                onRoleChanged = { user, role ->
+                                    viewModel.changeUserRole(user, role)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            else -> {
+                Text("No team members found")
+            }
+        }
+    }
+}
+
+@Composable
+fun TeamRoleHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(vertical = 8.dp)
+    )
+}
+
+@Composable
+fun TeamMemberItem(
+    user: User,
+    team: Team,
+    currentUserId: String?,
+    viewModel: TeamViewModel = koinInject(),
+    onRoleChanged: (User, TeamRole) -> Unit
+) {
+    println("DEBUG: TeamMemberItem for ${user.name}")
+
+    val isCurrentUser = user.id == currentUserId
+    val isPresident = team.presidentId == currentUserId
+
+    // Current user can manage roles if they're the president
+    val canManageRoles = isPresident && !isCurrentUser
+
+    println("DEBUG: canManageRoles = $canManageRoles")
+    println("DEBUG: team = ${team.id}")
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Avatar placeholder
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(MaterialTheme.colorScheme.primary, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                "Error: ${state.message}",
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(16.dp)
+                text = user.name.firstOrNull()?.toString() ?: "?",
+                color = MaterialTheme.colorScheme.onPrimary
             )
         }
 
-        else -> { /* Initial state - show nothing */ }
-    }
-}
+        Spacer(modifier = Modifier.width(12.dp))
 
-@Composable
-fun MemberSection(title: String, members: List<User>) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        members.forEach { member ->
-            MemberItem(member)
-            Spacer(modifier = Modifier.height(8.dp))
+        // User info
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = user.name + if (isCurrentUser) " (You)" else "",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "@${user.username}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-    }
-}
 
-@Composable
-fun MemberItem(user: User) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // User avatar/initials
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(user.name.take(1).uppercase())
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // User details
-            Column {
-                Text(
-                    text = user.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "@${user.username}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        // Role management dropdown (only for president and not on themselves)
+        if (canManageRoles) {
+            println("DEBUG: Showing dropdown for ${user.name}")
+            RoleManagementDropdown(
+                user = user,
+                team = team,
+                currentUserIsPresident = isPresident,
+                onRoleChanged = onRoleChanged,
+                onKickUser = { viewModel.kickUser(it, team) }
+            )
+        } else {
+            println("DEBUG: Not showing dropdown because: canManageRoles=$canManageRoles, team is not null")
         }
     }
 }
