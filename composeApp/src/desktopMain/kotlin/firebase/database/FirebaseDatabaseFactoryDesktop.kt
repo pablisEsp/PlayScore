@@ -1,5 +1,6 @@
 package firebase.database
 
+import data.model.Like
 import data.model.User
 import firebase.auth.FirebaseAuthInterface
 import firebase.auth.createFirebaseAuth
@@ -81,7 +82,7 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
     }
 
 
-    override suspend fun updateUserData(uid: String, updates: Map<String, Any>): Boolean {
+    override suspend fun updateUserData(uid: String, updates: Map<String, Any?>): Boolean {
         try {
             val response = client.patch("$apiBaseUrl/user/update/$uid") {
                 contentType(ContentType.Application.Json)
@@ -112,6 +113,287 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
             return false
         }
     }
+
+    override suspend fun updateUsername(userId: String, username: String): Boolean {
+        try {
+            val token = ensureValidToken()
+            val response = client.patch("$apiBaseUrl/user/username/$userId") {
+                contentType(ContentType.Application.Json)
+                setBody(mapOf("username" to username))
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+            return response.status.isSuccess()
+        } catch (e: Exception) {
+            println("Error updating username: ${e.message}")
+            return false
+        }
+    }
+
+    override suspend fun checkUsernameAvailable(username: String): Boolean {
+        try {
+            val token = ensureValidToken()
+            val response = client.get("$apiBaseUrl/user/check-username/$username") {
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            if (response.status.isSuccess()) {
+                return response.body<Boolean>()
+            }
+            return false
+        } catch (e: Exception) {
+            println("Error checking username availability: ${e.message}")
+            return false
+        }
+    }
+
+    override suspend fun <T> getCollection(path: String): List<T> {
+        try {
+            val token = ensureValidToken()
+            val response = client.get("$apiBaseUrl/db/collection/$path") {
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                response.body()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            println("Error getting collection: ${e.message}")
+            return emptyList()
+        }
+    }
+
+    override suspend fun <T> getCollectionFiltered(path: String, field: String, value: Any?): List<T> {
+        try {
+            val token = ensureValidToken()
+            val encodedValue = Json.encodeToString(value)
+
+            val response = client.get("$apiBaseUrl/db/collection/$path/filter") {
+                parameter("field", field)
+                parameter("value", encodedValue)
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                response.body()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            println("Error getting filtered collection: ${e.message}")
+            return emptyList()
+        }
+    }
+
+    override suspend fun <T> getDocument(path: String): T? {
+        try {
+            val token = ensureValidToken()
+            val response = client.get("$apiBaseUrl/db/document/$path") {
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                @Suppress("UNCHECKED_CAST")
+                response.body<Any>() as T?
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            println("Error getting document: ${e.message}")
+            return null
+        }
+    }
+
+    override suspend fun <T> createDocument(path: String, data: T): String {
+        try {
+            val token = ensureValidToken()
+            val response = client.post("$apiBaseUrl/db/document/$path") {
+                contentType(ContentType.Application.Json)
+                @Suppress("UNCHECKED_CAST")
+                setBody(data as Any)
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                response.body<Map<String, String>>()["id"] ?: ""
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            println("Error creating document: ${e.message}")
+            return ""
+        }
+    }
+
+    override suspend fun <T> updateDocument(path: String, id: String, data: T): Boolean {
+        try {
+            val token = ensureValidToken()
+            val response = client.put("$apiBaseUrl/db/document/$path/$id") {
+                contentType(ContentType.Application.Json)
+                @Suppress("UNCHECKED_CAST")
+                setBody(data as Any)
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return response.status.isSuccess()
+        } catch (e: Exception) {
+            println("Error updating document: ${e.message}")
+            return false
+        }
+    }
+
+    override suspend fun updateFields(collectionPath: String, documentId: String, fields: Map<String, Any?>): Boolean {
+        try {
+            val token = ensureValidToken()
+            val response = client.patch("$apiBaseUrl/db/document/$collectionPath/$documentId") {
+                contentType(ContentType.Application.Json)
+                setBody(fields)
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return response.status.isSuccess()
+        } catch (e: Exception) {
+            println("Error updating fields: ${e.message}")
+            return false
+        }
+    }
+
+    override suspend fun deleteDocument(path: String, id: String): Boolean {
+        try {
+            val token = ensureValidToken()
+            val response = client.delete("$apiBaseUrl/db/document/$path/$id") {
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return response.status.isSuccess()
+        } catch (e: Exception) {
+            println("Error deleting document: ${e.message}")
+            return false
+        }
+    }
+
+    // Like-related methods
+    override suspend fun createLike(like: Like): String {
+        try {
+            val token = ensureValidToken()
+            val response = client.post("$apiBaseUrl/likes/create") {
+                contentType(ContentType.Application.Json)
+                setBody(like)
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                like.postId
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            println("Error creating like: ${e.message}")
+            return ""
+        }
+    }
+
+    override suspend fun deleteLike(userId: String, postId: String): Boolean {
+        try {
+            val token = ensureValidToken()
+            val response = client.delete("$apiBaseUrl/likes/delete") {
+                parameter("userId", userId)
+                parameter("postId", postId)
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return response.status.isSuccess()
+        } catch (e: Exception) {
+            println("Error deleting like: ${e.message}")
+            return false
+        }
+    }
+
+    override suspend fun isPostLikedByUser(userId: String, postId: String): Boolean {
+        try {
+            val token = ensureValidToken()
+            val response = client.get("$apiBaseUrl/likes/check") {
+                parameter("userId", userId)
+                parameter("postId", postId)
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                response.body<Boolean>()
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            println("Error checking if post is liked: ${e.message}")
+            return false
+        }
+    }
+
+    override suspend fun getLikesForPost(postId: String): List<Like> {
+        try {
+            val token = ensureValidToken()
+            val response = client.get("$apiBaseUrl/likes/post/$postId") {
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                response.body()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            println("Error getting likes for post: ${e.message}")
+            return emptyList()
+        }
+    }
+
+    override suspend fun getPostsLikedByUser(userId: String): List<String> {
+        try {
+            val token = ensureValidToken()
+            val response = client.get("$apiBaseUrl/likes/user/$userId") {
+                headers {
+                    append("Authorization", "Bearer $token")
+                }
+            }
+
+            return if (response.status.isSuccess()) {
+                response.body()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            println("Error getting posts liked by user: ${e.message}")
+            return emptyList()
+        }
+    }
+
 }
 
 actual fun createFirebaseDatabase(): FirebaseDatabaseInterface {

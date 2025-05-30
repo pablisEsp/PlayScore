@@ -12,13 +12,10 @@ data object Register
 data object Home
 
 @Serializable
-data object Search
+data class Search(val filter: String = "")
 
 @Serializable
 data object Team
-
-@Serializable
-data class TeamManagement(val teamId: String)
 
 @Serializable
 data object CreateTeam
