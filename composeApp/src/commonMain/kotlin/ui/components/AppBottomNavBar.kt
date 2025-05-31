@@ -41,7 +41,7 @@ private val bottomNavItems = listOf(
         title = "Home"
     ),
     NavigationItem(
-        route = Search,
+        route = Search(),
         icon = Icons.Default.Search,
         title = "Search"
     ),
@@ -90,7 +90,9 @@ fun AppBottomNavBar(
                     bottomNavItems.forEach { item ->
                         val selected = when {
                             // For Search route specifically, check if currentRoute starts with its qualified name
-                            item.route == Search && currentRoute?.startsWith(Search::class.qualifiedName?.substringBefore("?").toString()) == true -> true
+                            // Ensure item.route is an instance of Search for this comparison to work as intended
+                            // or compare based on the type if Search() is always passed with default args from bottom nav
+                            item.route is Search && currentRoute?.startsWith(Search::class.qualifiedName?.substringBefore("?").toString()) == true -> true
                             // For other routes, keep the exact match
                             else -> currentRoute == item.route::class.qualifiedName
                         }

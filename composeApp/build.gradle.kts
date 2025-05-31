@@ -99,11 +99,6 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
 
-            // Translation
-            //implementation("dev.icerock.moko:resources:0.24.5")
-            //implementation("dev.icerock.moko:resources-compose:0.24.5")
-
-
 
         }
         desktopMain.dependencies {

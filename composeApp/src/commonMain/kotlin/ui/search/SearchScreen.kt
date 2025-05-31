@@ -30,7 +30,8 @@ import viewmodel.TeamViewModel
 @Composable
 fun SearchScreen(
     navController: NavController,
-    searchViewModel: SearchViewModel = koinInject()
+    searchViewModel: SearchViewModel = koinInject(),
+    filter: String
 ) {
     val searchQuery by searchViewModel.searchQuery.collectAsState()
     val activeFilter by searchViewModel.activeFilter.collectAsState()
@@ -40,16 +41,16 @@ fun SearchScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Get the filter parameter from navigation
-    val navBackStackEntry = navController.currentBackStackEntry
-    val filterParam = navBackStackEntry?.arguments?.get("filter") as? String
+
 
     // Apply the filter from navigation parameter
-    LaunchedEffect(filterParam) {
-        when (filterParam) {
+    LaunchedEffect(filter) { // Changed: Use the 'filter' parameter directly
+        when (filter) {
             "Teams" -> searchViewModel.setFilter(SearchFilter.Teams)
             "Users" -> searchViewModel.setFilter(SearchFilter.Users)
-            else -> {} // Keep current filter
+            // If filter is an empty string (default from nav) or other,
+            // this will keep the ViewModel's current filter.
+            else -> { /* Keep current filter or handle default */ }
         }
     }
 

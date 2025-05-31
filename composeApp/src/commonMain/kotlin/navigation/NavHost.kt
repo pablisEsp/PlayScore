@@ -68,21 +68,12 @@ fun AppNavHost(
                 composable<CreateTeam> { CreateTeamScreen(navController)}
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
-                composable<Search> {
-                    // Redirect to the parameterized route
-                    navController.navigate("navigation.Search?filter=")
-                }
-                composable(
-                    route = "navigation.Search?filter={filter}",
-                    arguments = listOf(
-                        navArgument("filter") {
-                            type = NavType.StringType
-                            defaultValue = ""
-                            nullable = true
-                        }
+                composable<Search> { backStackEntry ->
+                    val searchArgs: Search = backStackEntry.toRoute()
+                    SearchScreen(
+                        navController = navController,
+                        filter = searchArgs.filter
                     )
-                ) {
-                    SearchScreen(navController)
                 }
                 composable<PostDetail> { backStackEntry ->
                     val postDetail: PostDetail = backStackEntry.toRoute()
