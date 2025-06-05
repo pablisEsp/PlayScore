@@ -217,7 +217,7 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
                 idToken = responseBody.token
                 // Set token expiry to 1 hour from now
                 tokenExpiry = System.currentTimeMillis() + 3600000
-                println("Login successful, token received: ${idToken?.take(10)}...")
+                println("Login successful. Full token received (is null: ${idToken == null}, is blank: ${idToken?.isBlank()}): $idToken") // Log the full token
                 println("Current user set to: $currentUser")
 
                 // Save auth state to persist between app restarts

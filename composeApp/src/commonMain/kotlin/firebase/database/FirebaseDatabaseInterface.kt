@@ -2,6 +2,7 @@ package firebase.database
 
 import data.model.Like
 import data.model.User
+import kotlinx.serialization.KSerializer
 
 interface FirebaseDatabaseInterface {
     //User methods
@@ -13,8 +14,13 @@ interface FirebaseDatabaseInterface {
     suspend fun checkUsernameAvailable(username: String): Boolean
 
     // Generic methods for posts and other collections
-    suspend fun <T> getCollection(path: String): List<T>
-    suspend fun <T> getCollectionFiltered(path: String, field: String, value: Any?): List<T>
+    suspend fun <T> getCollection(path: String, serializer: KSerializer<List<T>>): List<T>
+    suspend fun <T> getCollectionFiltered(
+        path: String,
+        field: String,
+        value: Any?,
+        serializer: KSerializer<List<T>>
+    ): List<T>
     suspend fun <T> getDocument(path: String): T?
     suspend fun <T> createDocument(path: String, data: T): String
     suspend fun <T> updateDocument(path: String, id: String, data: T): Boolean

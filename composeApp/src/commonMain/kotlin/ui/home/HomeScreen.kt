@@ -15,6 +15,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.Post
+import data.model.User
+import data.model.UserRole
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -141,8 +143,31 @@ fun PostCard(
     post: Post,
     isLiked: Boolean,
     onLikeClicked: () -> Unit,
-    onPostClicked: () -> Unit
+    onPostClicked: () -> Unit,
+    currentUser: User? = null,
+    onReportClicked: (String) -> Unit = {},
+    onDeleteClicked: () -> Unit = {},
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+
+    // Check if user can delete this post
+    val canDelete = currentUser != null && (
+        post.authorId == currentUser.id ||
+        currentUser.globalRole == UserRole.ADMIN ||
+        currentUser.globalRole == UserRole.SUPER_ADMIN
+    )
+
+    if (showReportDialog) {
+        ReportDialog(
+            onDismiss = { showReportDialog = false },
+            onReport = { reason ->
+                onReportClicked(reason)
+                showReportDialog = false
+            }
+        )
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -157,7 +182,10 @@ fun PostCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // Author info (left side)
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     // Display name
                     Text(
                         text = post.authorName.ifEmpty { "Unknown User" },
@@ -182,8 +210,52 @@ fun PostCard(
                     )
                 }
 
-                // Time ago (right side)
-                TimeAgoText(timestamp = post.createdAt)
+                // Time ago and menu
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TimeAgoText(timestamp = post.createdAt)
+
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options"
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            // Report option - available to all users
+                            DropdownMenuItem(
+                                text = { Text("Report post") },
+                                leadingIcon = { Icon(Icons.Default.Close, "Report") },
+                                onClick = {
+                                    showMenu = false
+                                    showReportDialog = true
+                                }
+                            )
+
+                            // Delete option - only for author or admins
+                            if (canDelete) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete post") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            "Delete",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onDeleteClicked()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -206,6 +278,41 @@ fun PostCard(
             )
         }
     }
+}
+
+@Composable
+fun ReportDialog(onDismiss: () -> Unit, onReport: (String) -> Unit) {
+    var reportReason by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Report Post") },
+        text = {
+            Column {
+                Text("Please tell us why you're reporting this post:")
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = reportReason,
+                    onValueChange = { reportReason = it },
+                    label = { Text("Reason") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onReport(reportReason) },
+                enabled = reportReason.trim().isNotBlank()
+            ) {
+                Text("Submit Report")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -330,8 +437,19 @@ fun HomeScreen(
                         post = post,
                         isLiked = post.isLikedByCurrentUser,
                         onLikeClicked = { postViewModel.likePost(post.id) },
-                        onPostClicked = {
-                            navController.navigate(PostDetail(post.id))
+                        onPostClicked = { navController.navigate(PostDetail(post.id)) },
+                        currentUser = localCurrentUser,
+                        onReportClicked = { reason ->
+                            postViewModel.reportPost(post.id, reason)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Report submitted")
+                            }
+                        },
+                        onDeleteClicked = {
+                            postViewModel.deletePost(post.id)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Post deleted")
+                            }
                         }
                     )
                 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
 
 class SearchViewModel(
     private val database: FirebaseDatabaseInterface
@@ -92,7 +93,7 @@ class SearchViewModel(
     }
 
     private suspend fun searchTeams(query: String): List<Team> {
-        val allTeams = database.getCollection<Team>("teams")
+        val allTeams = database.getCollection<Team>("teams", ListSerializer(Team.serializer()))
         return allTeams.filter { team ->
             team.name.contains(query, ignoreCase = true) ||
                     team.description.contains(query, ignoreCase = true)
@@ -100,7 +101,7 @@ class SearchViewModel(
     }
 
     private suspend fun searchUsers(query: String): List<User> {
-        val allUsers = database.getCollection<User>("users")
+        val allUsers = database.getCollection<User>("users", ListSerializer(User.serializer()))
         return allUsers.filter { user ->
             user.name.contains(query, ignoreCase = true) ||
                     user.username.contains(query, ignoreCase = true)

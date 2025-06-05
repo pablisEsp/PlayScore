@@ -7,9 +7,13 @@ import firebase.auth.createFirebaseAuth
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.*
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import utils.EnvironmentConfig
 
@@ -18,6 +22,16 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
         }
+        // Add this logging block
+        install(Logging) {
+            level = LogLevel.ALL
+        }
+    }
+
+    // Add this helper method
+    private fun logRequestDetails(methodName: String, path: String) {
+        println("⭐⭐⭐ $methodName called for path: $path ⭐⭐⭐")
+        println("Current user: ${auth.getCurrentUser()}")
     }
 
     private val apiBaseUrl = EnvironmentConfig.getEnv("DATABASE_API_URL") ?: "http://localhost:3000/api"
@@ -44,6 +58,8 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         val token = auth.getIdToken()
         if (token.isBlank()) {
             println("No valid token available for API request")
+        } else {
+            //println("Full token for testing: $token")
         }
         return token
     }
@@ -150,46 +166,85 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         }
     }
 
-    override suspend fun <T> getCollection(path: String): List<T> {
+
+    // Then implement in your desktop class
+    override suspend fun <T> getCollection(path: String, serializer: KSerializer<List<T>>): List<T> {
         try {
+            logRequestDetails("getCollection", path)
             val token = ensureValidToken()
-            val response = client.get("$apiBaseUrl/db/collection/$path") {
+
+            val fullUrl = "$apiBaseUrl/user/db/collection/$path"
+            println("Full API URL: $fullUrl")
+
+            val response = client.get(fullUrl) {
                 headers {
                     append("Authorization", "Bearer $token")
                 }
             }
 
+            println("getCollection response status: ${response.status}")
+
             return if (response.status.isSuccess()) {
-                response.body()
+                // Use the provided serializer to deserialize the response
+                val json = Json { ignoreUnknownKeys = true }
+                json.decodeFromString(serializer, response.body())
             } else {
+                println("Failed to get collection: ${response.status}")
                 emptyList()
             }
         } catch (e: Exception) {
             println("Error getting collection: ${e.message}")
+            e.printStackTrace()
             return emptyList()
         }
     }
 
-    override suspend fun <T> getCollectionFiltered(path: String, field: String, value: Any?): List<T> {
+    override suspend fun <T> getCollectionFiltered(
+        path: String,
+        field: String,
+        value: Any?,
+        serializer: KSerializer<List<T>>
+    ): List<T> {
         try {
+            logRequestDetails("getCollectionFiltered", "path=$path, field=$field, value=$value")
             val token = ensureValidToken()
-            val encodedValue = Json.encodeToString(value)
 
-            val response = client.get("$apiBaseUrl/db/collection/$path/filter") {
-                parameter("field", field)
-                parameter("value", encodedValue)
+            // Convert value to string for the server
+            val stringValue = when (value) {
+                is String -> value
+                is Number, is Boolean -> value.toString()
+                null -> "null"
+                else -> value.toString()
+            }
+
+            println("Making filtered collection request to: $apiBaseUrl/user/db/collection/$path/filter")
+            println("Parameters: field=$field, value=$stringValue")
+
+            val response = client.get("$apiBaseUrl/user/db/collection/$path/filter") {
                 headers {
                     append("Authorization", "Bearer $token")
                 }
+                parameter("field", field)
+                parameter("value", stringValue)
             }
 
-            return if (response.status.isSuccess()) {
-                response.body()
+            println("getCollectionFiltered response status: ${response.status}")
+
+            if (response.status.isSuccess()) {
+                val responseText = response.bodyAsText()
+                println("Response body: $responseText")
+
+                // Create a Json instance and use it with the provided serializer
+                val json = Json { ignoreUnknownKeys = true }
+                return json.decodeFromString(serializer, responseText)
             } else {
-                emptyList()
+                val errorBody = response.bodyAsText()
+                println("Error response: ${response.status} - $errorBody")
+                return emptyList()
             }
         } catch (e: Exception) {
             println("Error getting filtered collection: ${e.message}")
+            e.printStackTrace()
             return emptyList()
         }
     }

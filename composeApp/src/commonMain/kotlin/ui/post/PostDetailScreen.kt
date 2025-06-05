@@ -23,6 +23,7 @@ import ui.home.PostCard
 import ui.home.TimeAgoText
 import viewmodel.PostViewModel
 import ui.components.RefreshableContainer
+import viewmodel.HomeViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,7 +31,8 @@ import ui.components.RefreshableContainer
 fun PostDetailScreen(
     postId: String,
     navController: NavController,
-    postViewModel: PostViewModel = koinInject()
+    postViewModel: PostViewModel = koinInject(),
+    homeViewModel: HomeViewModel = koinInject()
 ) {
     val comments by postViewModel.comments.collectAsState(emptyList())
     val isLoading by postViewModel.isLoading.collectAsState()
@@ -220,8 +222,20 @@ fun PostDetailScreen(
                                 comment = comment,
                                 onLikeClicked = { postViewModel.likePost(comment.id) },
                                 onCommentClicked = {
-                                    println("Navigating to PostDetail with postId: ${comment.id}")
                                     navController.navigate(PostDetail(comment.id))
+                                },
+                                currentUser = homeViewModel.currentUser.collectAsState().value,
+                                onReportClicked = { reason ->
+                                    postViewModel.reportPost(comment.id, reason)
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Report submitted")
+                                    }
+                                },
+                                onDeleteClicked = {
+                                    postViewModel.deletePost(comment.id)
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Comment deleted")
+                                    }
                                 }
                             )
                         }

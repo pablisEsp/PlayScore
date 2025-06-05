@@ -1,10 +1,12 @@
 package repository
 
 import data.model.Post
+import data.model.Report
 import firebase.database.FirebaseDatabaseInterface
 import firebase.database.createFirebaseDatabase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.builtins.ListSerializer
 
 class FirebasePostRepository(
     private val database: FirebaseDatabaseInterface = createFirebaseDatabase()
@@ -13,7 +15,7 @@ class FirebasePostRepository(
 
     override fun getAllPosts(forceRefresh: Boolean): Flow<List<Post>> = flow {
         try {
-            val posts = database.getCollection<Post>(postsPath)
+            val posts = database.getCollection<Post>(postsPath, ListSerializer(Post.serializer()))
             println("Fetched ${posts.size} posts from $postsPath")
             val filteredPosts = posts
                 .filter { it.parentPostId.isNullOrEmpty() }
@@ -39,7 +41,8 @@ class FirebasePostRepository(
         val posts = database.getCollectionFiltered<Post>(
             path = postsPath,
             field = "authorId",
-            value = authorId
+            value = authorId,
+            serializer = ListSerializer(Post.serializer())
         )
         emit(posts)
     }
@@ -48,7 +51,8 @@ class FirebasePostRepository(
         val replies = database.getCollectionFiltered<Post>(
             path = postsPath,
             field = "parentPostId",
-            value = parentPostId
+            value = parentPostId,
+            serializer = ListSerializer(Post.serializer())
         ).sortedBy { it.createdAt }
         emit(replies)
     }
@@ -61,8 +65,49 @@ class FirebasePostRepository(
         database.updateDocument(postsPath, post.id, post)
     }
 
-    override suspend fun deletePost(postId: String) {
-        database.deleteDocument(postsPath, postId)
+    override suspend fun createReport(report: Report): Result<String> {
+        return try {
+            val reportId = database.createDocument("reports", report)
+            Result.success(reportId)
+        } catch (e: Exception) {
+            println("Error creating report: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deletePost(postId: String): Result<Boolean> {
+        return try {
+            database.deleteDocument(postsPath, postId)
+            Result.success(true)
+        } catch (e: Exception) {
+            println("Error deleting post: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    override fun getReportedPosts(): Flow<List<Pair<Post, Report>>> = flow {
+        try {
+            // Get all reports
+            val reports = database.getCollection<Report>("reports", ListSerializer(Report.serializer()))
+
+            // Get all posts
+            val allPosts = database.getCollection<Post>(postsPath, ListSerializer(Post.serializer()))
+
+            // Match reports with their posts
+            val reportedPosts = reports.mapNotNull { report ->
+                val post = allPosts.find { it.id == report.postId }
+                if (post != null) {
+                    post to report
+                } else {
+                    null
+                }
+            }
+
+            emit(reportedPosts)
+        } catch (e: Exception) {
+            println("Error fetching reported posts: ${e.message}")
+            emit(emptyList())
+        }
     }
 
     override suspend fun likePost(postId: String) {
@@ -73,7 +118,7 @@ class FirebasePostRepository(
 
     override suspend fun getCommentsForPost(postId: String): Flow<List<Post>> = flow {
         try {
-            val allPosts = database.getCollection<Post>("posts")
+            val allPosts = database.getCollection<Post>(postsPath, ListSerializer(Post.serializer()))
             val comments = allPosts.filter { it.parentPostId == postId }
                 .sortedByDescending {
                     try {
@@ -91,7 +136,7 @@ class FirebasePostRepository(
     }
 
     override suspend fun hasReplies(postId: String): Boolean {
-        val allPosts = database.getCollection<Post>("posts")
+        val allPosts = database.getCollection<Post>(postsPath, ListSerializer(Post.serializer()))
         return allPosts.any { it.parentPostId == postId }
     }
 

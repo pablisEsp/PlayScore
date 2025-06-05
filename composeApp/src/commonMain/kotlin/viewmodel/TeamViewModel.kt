@@ -164,7 +164,12 @@ class TeamViewModel(
     private suspend fun isTeamNameAvailable(teamName: String): Boolean {
         try {
             // Query teams by name to check if this team name already exists
-            val existingTeams = database.getCollectionFiltered<Team>("teams", "name", teamName)
+            val existingTeams = database.getCollectionFiltered<Team>(
+                path = "teams",
+                field = "name",
+                value = teamName,
+                serializer = kotlinx.serialization.builtins.ListSerializer(Team.serializer())
+            )
             return existingTeams.isEmpty()
         } catch (e: Exception) {
             _errorMessage.value = "Error checking team name: ${e.message}"
@@ -675,7 +680,8 @@ class TeamViewModel(
                 val requests = database.getCollectionFiltered<TeamJoinRequest>(
                     "teamJoinRequests",
                     "teamId",
-                    currentTeamId
+                    currentTeamId,
+                    serializer = kotlinx.serialization.builtins.ListSerializer(TeamJoinRequest.serializer())
                 ).filter { it.status == RequestStatus.PENDING }
                 println("DEBUG: Raw requests from DB: $requests")
                 val requestsWithUsers = requests.mapNotNull { request ->
@@ -718,7 +724,8 @@ class TeamViewModel(
                     val existingRequests = database.getCollectionFiltered<TeamJoinRequest>(
                         "teamJoinRequests",
                         "userId",
-                        currentUserId
+                        currentUserId,
+                        serializer = kotlinx.serialization.builtins.ListSerializer(TeamJoinRequest.serializer())
                     ).filter { it.status == RequestStatus.PENDING && it.teamId == teamId }
 
                     if (existingRequests.isNotEmpty()) {
@@ -855,7 +862,8 @@ class TeamViewModel(
                 val requests = database.getCollectionFiltered<TeamJoinRequest>(
                     "teamJoinRequests",
                     "userId",
-                    currentUserId
+                    currentUserId,
+                    serializer = kotlinx.serialization.builtins.ListSerializer(TeamJoinRequest.serializer())
                 ).filter { it.status == RequestStatus.PENDING }
 
                 println("DEBUG: Found ${requests.size} pending requests")

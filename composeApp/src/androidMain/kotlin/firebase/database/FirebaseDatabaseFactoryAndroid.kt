@@ -2,12 +2,15 @@ package firebase.database
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.ServerValue
 import data.model.Like
 import data.model.Post
+import data.model.RequestStatus
 import data.model.Team
+import data.model.TeamJoinRequest
 import data.model.TeamMembership
 import data.model.TeamRole
 import data.model.User
@@ -15,6 +18,8 @@ import data.model.UserRole
 import data.model.UserStats
 import firebase.database.FirebaseDatabaseInterface
 import kotlinx.coroutines.tasks.await
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.SerialDescriptor
 import java.util.Date
 import kotlin.collections.emptyList
 import kotlin.coroutines.resume
@@ -30,7 +35,6 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                 continuation.resume(true)
             }
             .addOnFailureListener { e ->
-                // It's good practice to log the error!
                 Log.e("FirebaseDatabaseAndroid", "Failed to save user data", e)
                 continuation.resume(false)
             }
@@ -229,133 +233,140 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
             }
     }
 
-    // Replace the existing generic methods with these properly implemented versions
+    private fun logRequestDetails(methodName: String, path: String) {
+        Log.d("FirebaseDatabase", "⭐⭐⭐ $methodName called for path: $path ⭐⭐⭐")
+        //Log.d("FirebaseDatabase", "Current user: ${auth.getCurrentUser()?.email}")
+    }
 
-    override suspend fun <T> getCollection(path: String): List<T> = suspendCoroutine { continuation ->
+    override suspend fun <T> getCollection(path: String, serializer: KSerializer<List<T>>): List<T> = suspendCoroutine { continuation ->
+        logRequestDetails("getCollection", path)
         val ref = database.getReference(path)
         ref.get().addOnSuccessListener { snapshot ->
-            val items = mutableListOf<T>()
-            for (childSnapshot in snapshot.children) {
-                try {
-                    when (path) {
-                        "posts" -> {
-                            // Your existing posts handling
-                            val id = childSnapshot.key ?: ""
-                            val authorId = childSnapshot.child("authorId").getValue(String::class.java) ?: ""
-                            val authorName = childSnapshot.child("authorName").getValue(String::class.java) ?: ""
-                            val content = childSnapshot.child("content").getValue(String::class.java) ?: ""
-                            val mediaUrls = childSnapshot.child("mediaUrls").getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
-                            val likeCount = childSnapshot.child("likeCount").getValue(Int::class.java) ?: 0
-                            val parentPostId = childSnapshot.child("parentPostId").getValue(String::class.java)
-                            val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
-
-                            val post = Post(
-                                id = id,
-                                authorId = authorId,
-                                authorName = authorName,
-                                content = content,
-                                mediaUrls = mediaUrls,
-                                likeCount = likeCount,
-                                parentPostId = parentPostId,
-                                createdAt = createdAt
-                            ) as T
-
-                            items.add(post)
-                        }
-                        "users" -> {
-                            // Add user-specific handling
-                            val id = childSnapshot.key ?: ""
-                            val name = childSnapshot.child("name").getValue(String::class.java) ?: ""
-                            val email = childSnapshot.child("email").getValue(String::class.java) ?: ""
-                            val username = childSnapshot.child("username").getValue(String::class.java) ?: ""
-                            val roleStr = childSnapshot.child("globalRole").getValue(String::class.java) ?: "USER"
-                            val globalRole = try {
-                                UserRole.valueOf(roleStr)
-                            } catch (e: Exception) {
-                                UserRole.USER
-                            }
-                            val profileImage = childSnapshot.child("profileImage").getValue(String::class.java) ?: ""
-                            val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
-
-                            val user = User(
-                                id = id,
-                                name = name,
-                                email = email,
-                                username = username,
-                                globalRole = globalRole,
-                                profileImage = profileImage,
-                                createdAt = createdAt
-                            ) as T
-
-                            items.add(user)
-                        }
-                        "teams" -> {
-                            // Add team-specific handling
-                            val id = childSnapshot.key ?: ""
-                            val name = childSnapshot.child("name").getValue(String::class.java) ?: ""
-                            val presidentId = childSnapshot.child("presidentId").getValue(String::class.java) ?: ""
-                            val description = childSnapshot.child("description").getValue(String::class.java) ?: ""
-                            val createdAt = childSnapshot.child("createdAt").getValue(String::class.java) ?: ""
-
-                            val team = Team(
-                                id = id,
-                                name = name,
-                                presidentId = presidentId,
-                                description = description,
-                                createdAt = createdAt
-                            ) as T
-
-                            items.add(team)
-                        }
-                        else -> {
-                            // Generic handling for other types
-                            val key = childSnapshot.key ?: ""
-                            val valueMap = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any>>() {})
-                            val item = deserializeToType<T>(valueMap, key)
-                            item?.let { items.add(it) }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("FirebaseDatabase", "Error deserializing item: ${e.message}")
-                }
+            try {
+                val items = deserializeSnapshotToList<T>(snapshot, serializer.descriptor)
+                continuation.resume(items)
+            } catch (e: Exception) {
+                Log.e("FirebaseDatabase", "Error deserializing collection: ${e.message}", e)
+                continuation.resume(emptyList())
             }
-            continuation.resume(items)
         }.addOnFailureListener { e ->
-            Log.e("FirebaseDatabase", "Error fetching collection: ${e.message}")
+            Log.e("FirebaseDatabase", "Error fetching collection: ${e.message}", e)
             continuation.resume(emptyList())
         }
     }
 
-    override suspend fun <T> getCollectionFiltered(path: String, field: String, value: Any?): List<T> = suspendCoroutine { continuation ->
+    override suspend fun <T> getCollectionFiltered(
+        path: String,
+        field: String,
+        value: Any?,
+        serializer: KSerializer<List<T>>
+    ): List<T> = suspendCoroutine { continuation ->
+        logRequestDetails("getCollectionFiltered", "$path (field: $field, value: $value)")
         val query = when (value) {
             is String -> database.getReference(path).orderByChild(field).equalTo(value)
             is Boolean -> database.getReference(path).orderByChild(field).equalTo(value)
             is Double -> database.getReference(path).orderByChild(field).equalTo(value)
             is Int -> database.getReference(path).orderByChild(field).equalTo(value.toDouble())
+            null -> database.getReference(path).orderByChild(field).equalTo(null)
             else -> database.getReference(path).orderByChild(field)
         }
 
-        query.get()
-            .addOnSuccessListener { snapshot ->
-                val items = mutableListOf<T>()
-                for (childSnapshot in snapshot.children) {
-                    try {
-                        val key = childSnapshot.key ?: ""
-                        val valueMap = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any>>() {})
-                        val item = deserializeToType<T>(valueMap, key)
-                        item?.let { items.add(it) }
-                    } catch (e: Exception) {
-                        Log.e("FirebaseDatabase", "Error deserializing filtered item: ${e.message}")
-                    }
-                }
+        query.get().addOnSuccessListener { snapshot ->
+            try {
+                val items = deserializeSnapshotToList<T>(snapshot, serializer.descriptor)
                 continuation.resume(items)
-            }
-            .addOnFailureListener { e ->
-                Log.e("FirebaseDatabase", "Failed to get filtered collection: ${e.message}")
+            } catch (e: Exception) {
+                Log.e("FirebaseDatabase", "Error deserializing filtered collection: ${e.message}", e)
                 continuation.resume(emptyList())
             }
+        }.addOnFailureListener { e ->
+            Log.e("FirebaseDatabase", "Error fetching filtered collection: ${e.message}", e)
+            continuation.resume(emptyList())
+        }
     }
 
+    private fun <T> deserializeSnapshotToList(snapshot: DataSnapshot, descriptor: SerialDescriptor): List<T> {
+        val elementType = descriptor.getElementDescriptor(0).serialName
+        val items = mutableListOf<T>()
+
+        for (childSnapshot in snapshot.children) {
+            val key = childSnapshot.key ?: continue
+
+            // Check element type rather than full serializer name
+            when {
+                elementType.endsWith("data.model.Post") -> {
+                    val post = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        val postId = childSnapshot.key ?: ""
+                        Post(
+                            id = postId,
+                            authorId = valueMap["authorId"] as? String ?: "",
+                            authorName = valueMap["authorName"] as? String ?: "",
+                            content = valueMap["content"] as? String ?: "",
+                            mediaUrls = (valueMap["mediaUrls"] as? List<String>) ?: emptyList(),
+                            likeCount = (valueMap["likeCount"] as? Long)?.toInt() ?: 0,
+                            parentPostId = valueMap["parentPostId"] as? String,
+                            createdAt = valueMap["createdAt"] as? String ?: Date().toString(),
+                            isLikedByCurrentUser = false
+                        )
+                    }
+                    if (post != null) items.add(post as T)
+                }
+
+                elementType.endsWith("data.model.Team") -> {
+                    val team = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        Team(
+                            id = key,
+                            name = valueMap["name"] as? String ?: "",
+                            description = valueMap["description"] as? String ?: "",
+                            presidentId = valueMap["presidentId"] as? String ?: "",
+                            vicePresidentId = valueMap["vicePresidentId"] as? String,
+                            captainIds = (valueMap["captainIds"] as? List<String>) ?: emptyList(),
+                            playerIds = (valueMap["playerIds"] as? List<String>) ?: emptyList(),
+                            createdAt = valueMap["createdAt"] as? String ?: Date().toString()
+                        )
+                    }
+                    if (team != null) items.add(team as T)
+                }
+
+                elementType.endsWith("data.model.TeamJoinRequest") -> {
+                    val request = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        TeamJoinRequest(
+                            id = key,
+                            userId = valueMap["userId"] as? String ?: "",
+                            teamId = valueMap["teamId"] as? String ?: "",
+                            timestamp = valueMap["timestamp"] as? String ?: "",
+                            status = when (valueMap["status"] as? String) {
+                                "APPROVED" -> RequestStatus.APPROVED
+                                "REJECTED" -> RequestStatus.REJECTED
+                                else -> RequestStatus.PENDING
+                            },
+                            responseBy = (valueMap["responseBy"] as? String).toString(),
+                            responseTimestamp = (valueMap["responseTimestamp"] as? String).toString()
+                        )
+                    }
+                    if (request != null) items.add(request as T)
+                }
+
+                elementType.endsWith("data.model.Like") -> {
+                    val like = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        Like(
+                            userId = valueMap["userId"] as? String ?: "",
+                            postId = valueMap["postId"] as? String ?: "",
+                            timestamp = valueMap["timestamp"] as? String ?: ""
+                        )
+                    }
+                    if (like != null) items.add(like as T)
+                }
+
+                else -> {
+                    Log.e("FirebaseDatabase", "Unsupported element type: $elementType")
+                    continue
+                }
+            }
+        }
+
+        return items
+    }
 
 
     override suspend fun <T> getDocument(path: String): T? = suspendCoroutine { continuation ->

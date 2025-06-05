@@ -3,7 +3,9 @@ package viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.model.Post
+import data.model.Report
 import data.model.User
+import data.model.UserRole
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +37,9 @@ class PostViewModel(
 
     private val _parentPost = MutableStateFlow<Post?>(null)
     val parentPost: StateFlow<Post?> = _parentPost.asStateFlow()
+
+    private val _reportedPosts = MutableStateFlow<List<Pair<Post, Report>>>(emptyList())
+    val reportedPosts: StateFlow<List<Pair<Post, Report>>> = _reportedPosts.asStateFlow()
 
     init {
         getAllPosts(forceRefresh = true)
@@ -222,6 +227,80 @@ class PostViewModel(
             } catch (e: Exception) {
                 _parentPost.value = null
                 println("Error loading parent post for post ID: $postId, Error: ${e.message}")
+            }
+        }
+    }
+
+    fun reportPost(postId: String, reason: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val user = getCurrentUser()
+                val report = Report(
+                    postId = postId,
+                    reporterId = user.id,
+                    reason = reason,
+                    timestamp = Clock.System.now().toString()
+                )
+                val result = postRepository.createReport(report)
+                if (result.isSuccess) {
+                    // Handle successful report
+                }
+            } catch (e: Exception) {
+                println("Error reporting post: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deletePost(postId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val user = getCurrentUser()
+                val post = _posts.value.find { it.id == postId }
+                    ?: _currentPost.value
+                    ?: _comments.value.find { it.id == postId }
+                    ?: return@launch
+
+                // Check if user has permission to delete
+                val canDelete = post.authorId == user.id ||
+                                user.globalRole == UserRole.ADMIN ||
+                                user.globalRole == UserRole.SUPER_ADMIN
+
+                if (canDelete) {
+                    val result = postRepository.deletePost(postId)
+                    if (result.isSuccess) {
+                        // Update UI state based on which collection the post was in
+                        _posts.update { list -> list.filter { it.id != postId } }
+                        if (_currentPost.value?.id == postId) {
+                            _currentPost.value = null
+                        }
+                        _comments.update { list -> list.filter { it.id != postId } }
+                    }
+                } else {
+                    println("User doesn't have permission to delete post")
+                }
+            } catch (e: Exception) {
+                println("Error deleting post: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun getReportedPosts() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                postRepository.getReportedPosts().collect { reportedPostsList ->
+                    _reportedPosts.value = reportedPostsList
+                }
+            } catch (e: Exception) {
+                println("Error loading reported posts: ${e.message}")
+            } finally {
+                _isLoading.value = false
             }
         }
     }
