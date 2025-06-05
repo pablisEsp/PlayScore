@@ -7,9 +7,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import data.model.Team
+import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 import viewmodel.TeamViewModel
 
@@ -22,23 +26,34 @@ fun TeamJoinRequestButton(
     val userPendingRequests by viewModel.userPendingRequests.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    // Add state to control visibility
+    var readyToShow by remember { mutableStateOf(false) }
+
     // Load current user and their pending requests when component mounts
     LaunchedEffect(Unit) {
         viewModel.getCurrentUserData()
         viewModel.loadUserPendingRequests()
+        // Short delay to ensure data is loaded before making visibility decision
+        delay(100)
+        readyToShow = true
+    }
+
+    // Don't render anything until we're ready
+    if (!readyToShow) {
+        return
     }
 
     // Check if user is already in a team
     val isInTeam = currentUser?.teamMembership != null
 
+    // Don't show button if user is already in a team
+    if (isInTeam) {
+        return
+    }
+
     // Check if user already has a pending request for this team
     val hasPendingRequest = userPendingRequests.any {
         it.teamId == team.id
-    }
-
-    // Don't show button if user is already in a team or has a pending request
-    if (isInTeam) {
-        return
     }
 
     Button(
