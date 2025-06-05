@@ -45,7 +45,7 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
                 isLenient = true
             })
         }
-        // Add logging to debug HTTP requests
+        // Logging to debug HTTP requests
         install(Logging) {
             level = LogLevel.ALL
         }

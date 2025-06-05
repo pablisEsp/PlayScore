@@ -40,11 +40,9 @@ class FirebaseLikeRepository(
                 // User hasn't liked this post yet, so like it
                 val timestamp = Clock.System.now().toString()
 
-                // Add to postLikes collection
                 val likeData = mapOf("timestamp" to timestamp)
                 val success1 = database.updateDocument("postLikes/$postId", userId, likeData)
 
-                // Also add to userLikes collection
                 val success2 = database.updateDocument("userLikes/$userId", postId, likeData)
 
                 // Only update the likeCount field

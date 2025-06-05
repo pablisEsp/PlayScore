@@ -56,11 +56,11 @@ class TeamViewModel(
         object None : TeamNavigationEvent()
     }
 
-    // Add this property to your class
+    // Property to your class
     private val _navigationEvent = MutableStateFlow<TeamNavigationEvent>(TeamNavigationEvent.None)
     val navigationEvent: StateFlow<TeamNavigationEvent> = _navigationEvent.asStateFlow()
 
-    // Add this method to reset navigation after handling
+    // Method to reset navigation after handling
     fun onNavigationEventProcessed() {
         _navigationEvent.value = TeamNavigationEvent.None
     }
@@ -134,6 +134,9 @@ class TeamViewModel(
                     // Update user's team membership to null
                     val success = database.updateUserData(currentUserId, updates)
                     if (success) {
+                        // Delete all pending join requests by this user
+                        deleteAllUserPendingRequests(currentUserId)
+
                         // Update local state
                         _currentUser.value = _currentUser.value?.copy(teamMembership = teamMembership)
                         getTeamById(teamId) // Load the newly created team
@@ -614,7 +617,7 @@ class TeamViewModel(
                         )
                     )
 
-                    // Add these lines to refresh UI after presidency transfer:
+                    // Refresh UI after presidency transfer:
                     _successMessage.value = "Presidency transferred successfully"
 
                     // Update the current team in state
@@ -659,10 +662,33 @@ class TeamViewModel(
         data class Error(val message: String) : TeamMembersState()
     }
 
+    // Helper function to delete all pending join requests for a user
+    private suspend fun deleteAllUserPendingRequests(userId: String) {
+        try {
+            // Get all pending requests by the user
+            val requests = database.getCollectionFiltered<TeamJoinRequest>(
+                "teamJoinRequests",
+                "userId",
+                userId,
+                serializer = kotlinx.serialization.builtins.ListSerializer(TeamJoinRequest.serializer())
+            ).filter { it.status == RequestStatus.PENDING }
+
+            // Delete each request
+            for (request in requests) {
+                database.deleteDocument("teamJoinRequests", request.id)
+            }
+
+            // Update the local state
+            _userPendingRequests.value = emptyList()
+
+            println("DEBUG: Deleted ${requests.size} pending join requests for user $userId")
+        } catch (e: Exception) {
+            println("DEBUG: Error deleting user requests: ${e.message}")
+            // Don't throw or set error message to avoid interrupting the main flow
+        }
+    }
 
     // ----------------- TEAM JOINING ---------------- //
-
-    // Add these to your TeamViewModel.kt
     private val _teamJoinRequests = MutableStateFlow<List<TeamJoinRequestWithUser>>(emptyList())
     val teamJoinRequests: StateFlow<List<TeamJoinRequestWithUser>> = _teamJoinRequests.asStateFlow()
 
@@ -711,6 +737,14 @@ class TeamViewModel(
                 _isLoading.value = true
                 val currentUserId = auth.getCurrentUser()?.uid ?: throw Exception("Not logged in")
 
+                // First, check if the user is already in a team
+                val currentUser = _currentUser.value ?: database.getDocument<User>("users/$currentUserId")
+
+                if (currentUser?.teamMembership != null) {
+                    _errorMessage.value = "You are already a member of a team"
+                    return@launch
+                }
+
                 // Create the request object first
                 val request = TeamJoinRequest(
                     teamId = teamId,
@@ -745,9 +779,9 @@ class TeamViewModel(
                     // Reload the user's pending requests to update the UI
                     loadUserPendingRequests()
 
-                    // Add the new request to the current list to update UI immediately
+                    // New request to the current list to update UI immediately
                     val newRequest = request.copy(id = id)
-                    _userPendingRequests.value = _userPendingRequests.value + newRequest
+                    _userPendingRequests.value += newRequest
                 } else {
                     _errorMessage.value = "Failed to send join request"
                 }
@@ -806,6 +840,9 @@ class TeamViewModel(
                         )
 
                         if (teamUpdateSuccess && userUpdateSuccess) {
+                            // Delete all other pending requests from this user since they joined a team
+                            deleteAllUserPendingRequests(request.userId)
+
                             _successMessage.value = if (approve) "Request approved" else "Request rejected"
 
                             // Get fresh team data from database to ensure we have the latest
@@ -846,8 +883,6 @@ class TeamViewModel(
         }
     }
 
-
-    // Add to TeamViewModel.kt
     private val _userPendingRequests = MutableStateFlow<List<TeamJoinRequest>>(emptyList())
     val userPendingRequests: StateFlow<List<TeamJoinRequest>> = _userPendingRequests.asStateFlow()
 

@@ -236,7 +236,7 @@ fun TeamSearchItem(
             }
         }
 
-        // Add the join request button with proper padding
+        // Join request button with proper padding
         Spacer(modifier = Modifier.height(12.dp))
         Box(
             modifier = Modifier.fillMaxWidth(),
@@ -244,8 +244,6 @@ fun TeamSearchItem(
         ) {
             TeamJoinRequestButton(
                 team = team,
-                currentUserTeamId = currentUserTeamId,
-                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
             )
         }
     }

@@ -1,14 +1,14 @@
 package ui.team
 
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import data.model.Team
 import org.koin.compose.koinInject
 import viewmodel.TeamViewModel
@@ -16,87 +16,40 @@ import viewmodel.TeamViewModel
 @Composable
 fun TeamJoinRequestButton(
     team: Team,
-    currentUserTeamId: String?,
-    modifier: Modifier = Modifier,
     viewModel: TeamViewModel = koinInject()
 ) {
+    val currentUser by viewModel.currentUser.collectAsState()
+    val userPendingRequests by viewModel.userPendingRequests.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val pendingRequests by viewModel.userPendingRequests.collectAsState()
-    var showCancelConfirmation by remember { mutableStateOf(false) }
 
-    // Check if current user has a pending request for this team
-    val pendingRequest = pendingRequests.find { it.teamId == team.id }
-
-    // Load user's pending requests when component first displays
+    // Load current user and their pending requests when component mounts
     LaunchedEffect(Unit) {
+        viewModel.getCurrentUserData()
         viewModel.loadUserPendingRequests()
     }
 
-    // Cancel request confirmation dialog
-    if (showCancelConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showCancelConfirmation = false },
-            title = { Text("Cancel Request") },
-            text = { Text("Are you sure you want to cancel your request to join ${team.name}?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        pendingRequest?.let { viewModel.cancelJoinRequest(it.id) }
-                        showCancelConfirmation = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                ) {
-                    Text("Yes, Cancel Request")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCancelConfirmation = false }) {
-                    Text("Keep Request")
-                }
-            }
-        )
+    // Check if user is already in a team
+    val isInTeam = currentUser?.teamMembership != null
+
+    // Check if user already has a pending request for this team
+    val hasPendingRequest = userPendingRequests.any {
+        it.teamId == team.id
     }
 
-    if (currentUserTeamId != null && currentUserTeamId == team.id) {
-        // User is already in this team
-        Button(
-            onClick = { /* Do nothing */ },
-            enabled = false,
-            modifier = modifier
-        ) {
-            Text("Your Team")
-        }
-    } else if (currentUserTeamId != null) {
-        // User is in another team
-        Button(
-            onClick = { /* Do nothing */ },
-            enabled = false,
-            modifier = modifier
-        ) {
-            Text("Already in Team")
-        }
-    } else if (pendingRequest != null) {
-        // User has a pending request for this team
-        OutlinedButton(
-            onClick = { showCancelConfirmation = true },
-            modifier = modifier,
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error
-            )
-        ) {
-            Text("Cancel Request")
-        }
-    } else {
-        // User can join this team
-        Button(
-            onClick = { viewModel.createJoinRequest(team.id) },
-            enabled = !isLoading,
-            modifier = modifier
-        ) {
-            Text("Request to Join")
+    // Don't show button if user is already in a team or has a pending request
+    if (isInTeam) {
+        return
+    }
+
+    Button(
+        onClick = { viewModel.createJoinRequest(team.id) },
+        enabled = !isLoading && !hasPendingRequest,
+        modifier = Modifier.padding(vertical = 8.dp)
+    ) {
+        when {
+            isLoading -> Text("Processing...")
+            hasPendingRequest -> Text("Request Pending")
+            else -> Text("Request to Join")
         }
     }
 }

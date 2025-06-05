@@ -22,13 +22,13 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
         }
-        // Add this logging block
+        // Logging block
         install(Logging) {
             level = LogLevel.ALL
         }
     }
 
-    // Add this helper method
+    // helper method
     private fun logRequestDetails(methodName: String, path: String) {
         println("⭐⭐⭐ $methodName called for path: $path ⭐⭐⭐")
         println("Current user: ${auth.getCurrentUser()}")
