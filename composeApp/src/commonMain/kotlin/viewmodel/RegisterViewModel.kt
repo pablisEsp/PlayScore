@@ -42,6 +42,16 @@ class RegisterViewModel(
     private val _username = MutableStateFlow("")
     val username = _username.asStateFlow()
 
+    private val _isEmailVerificationRequired = MutableStateFlow(false)
+    val isEmailVerificationRequired = _isEmailVerificationRequired.asStateFlow()
+
+    private val _confirmEmail = MutableStateFlow("")
+    val confirmEmail = _confirmEmail.asStateFlow()
+
+    fun onConfirmEmailChanged(value: String) {
+        _confirmEmail.value = value
+    }
+
     fun onUsernameChanged(value: String) {
         _username.value = value
     }
@@ -61,6 +71,11 @@ class RegisterViewModel(
     fun register() {
         if (_name.value.isBlank() || _email.value.isBlank() || _password.value.isBlank() || _username.value.isBlank()) {
             _registerResult.value = "All fields including username are required"
+            return
+        }
+
+        if (_email.value != _confirmEmail.value) {
+            _registerResult.value = "Email addresses don't match"
             return
         }
 
@@ -91,6 +106,9 @@ class RegisterViewModel(
                 val result = auth.createUser(_email.value, _password.value)
 
                 if (result.success) {
+                    // Send email verification
+                    auth.sendEmailVerification()
+
                     auth.updateUserProfile(_name.value)
 
                     result.userId?.let { uid ->
@@ -112,8 +130,10 @@ class RegisterViewModel(
                         }
                     }
 
-                    _isRegistrationComplete.value = true
-                    _registerResult.value = "Registered successfully"
+                    // Indicate verification required instead of complete
+                    _registerResult.value = "Registered successfully. Please verify your email."
+                    _isEmailVerificationRequired.value = true // Add this state flow property
+
                 } else {
                     // Existing error handling...
                 }

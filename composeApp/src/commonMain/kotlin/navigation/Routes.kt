@@ -28,3 +28,6 @@ data object Settings
 
 @Serializable
 data class PostDetail(val postId: String)
+
+@Serializable
+data class EmailVerification(val email: String? = null)

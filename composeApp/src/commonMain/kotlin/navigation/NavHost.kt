@@ -7,21 +7,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
 import org.koin.compose.koinInject
+import ui.auth.EmailVerificationScreen
 import ui.components.AppBottomNavBar
 import ui.home.HomeScreen
-import ui.login.LoginScreen
+import ui.auth.LoginScreen
 import ui.post.PostDetailScreen
 import ui.profile.ProfileScreen
-import ui.register.RegisterScreen
+import ui.auth.RegisterScreen
 import ui.search.SearchScreen
 import ui.settings.SettingsScreen
 import ui.team.CreateTeamScreen
@@ -63,6 +62,13 @@ fun AppNavHost(
             ) {
                 composable<Login> { LoginScreen(navController) }
                 composable<Register> { RegisterScreen(navController) }
+                composable<EmailVerification> { backStackEntry ->
+                    val verificationArgs: EmailVerification = backStackEntry.toRoute()
+                    EmailVerificationScreen(
+                        navController = navController,
+                        email = verificationArgs.email
+                    )
+                }
                 composable<Home> { HomeScreen(navController) }
                 composable<Team> { TeamScreen(navController) }
                 composable<CreateTeam> { CreateTeamScreen(navController)}

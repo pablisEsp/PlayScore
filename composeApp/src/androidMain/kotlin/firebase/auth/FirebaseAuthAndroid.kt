@@ -57,7 +57,6 @@ class FirebaseAuthAndroid : FirebaseAuthInterface {
         firebaseAuth.signOut()
     }
 
-
     override suspend fun getIdToken(): String {
         val firebaseUser = firebaseAuth.currentUser ?: return ""
         return try {
@@ -68,6 +67,33 @@ class FirebaseAuthAndroid : FirebaseAuthInterface {
         } catch (e: Exception) {
             println("Error retrieving ID token: ${e.message}")
             ""
+        }
+    }
+
+    override suspend fun sendEmailVerification(): Boolean {
+        return try {
+            val user = firebaseAuth.currentUser ?: return false
+            user.sendEmailVerification().await()
+            true
+        } catch (e: Exception) {
+            println("Error sending verification email: ${e.message}")
+            false
+        }
+    }
+
+    override suspend fun isEmailVerified(): Boolean {
+        val user = firebaseAuth.currentUser ?: return false
+        return user.isEmailVerified
+    }
+
+    override suspend fun reloadUser(): Boolean {
+        return try {
+            val user = firebaseAuth.currentUser ?: return false
+            user.reload().await()
+            true
+        } catch (e: Exception) {
+            println("Error reloading user: ${e.message}")
+            false
         }
     }
 }

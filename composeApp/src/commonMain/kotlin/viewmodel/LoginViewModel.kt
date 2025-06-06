@@ -32,6 +32,9 @@ class LoginViewModel(
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn = _isLoggedIn.asStateFlow()
 
+    private val _isEmailVerificationRequired = MutableStateFlow(false)
+    val isEmailVerificationRequired = _isEmailVerificationRequired.asStateFlow()
+
     fun onEmailChanged(value: String) {
         _email.value = value
     }
@@ -58,6 +61,14 @@ class LoginViewModel(
                     return@launch
                 }
 
+                // Check if email is verified
+                if (!auth.isEmailVerified()) {
+                    _loginMessage.value = "Please verify your email before logging in"
+                    _isEmailVerificationRequired.value = true
+                    _isLoading.value = false
+                    return@launch
+                }
+
                 val userData = withContext(Dispatchers.IO) {
                     database.getUserData(authResult.userId)
                 }
@@ -73,6 +84,24 @@ class LoginViewModel(
                 }
             } catch (e: Exception) {
                 _loginMessage.value = "Login error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Add a new function to resend verification email
+    fun resendVerificationEmail() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                if (auth.sendEmailVerification()) {
+                    _loginMessage.value = "Verification email sent"
+                } else {
+                    _loginMessage.value = "Failed to send verification email"
+                }
+            } catch (e: Exception) {
+                _loginMessage.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
             }

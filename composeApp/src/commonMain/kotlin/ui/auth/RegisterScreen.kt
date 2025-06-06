@@ -1,5 +1,4 @@
-package ui.login
-
+package ui.auth
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -11,7 +10,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,35 +23,58 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import navigation.EmailVerification
+import navigation.Register
 import org.koin.compose.koinInject
 import ui.components.AuthButton
 import ui.components.AuthDivider
 import ui.components.AuthMessage
 import ui.components.AuthTextField
 import ui.theme.AppTheme
-import viewmodel.LoginViewModel
+import viewmodel.RegisterViewModel
 
 @Composable
-fun LoginScreen(
+fun RegisterScreen(
     navController: NavController,
-    viewModel: LoginViewModel = koinInject()
+    viewModel: RegisterViewModel = koinInject()
 ) {
+    val name by viewModel.name.collectAsState()
+    val username by viewModel.username.collectAsState()
     val email by viewModel.email.collectAsState()
     val password by viewModel.password.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val loginMessage by viewModel.loginMessage.collectAsState()
-    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val registerResult by viewModel.registerResult.collectAsState()
+    val isRegistrationComplete by viewModel.isRegistrationComplete.collectAsState()
+    val isEmailVerificationRequired by viewModel.isEmailVerificationRequired.collectAsState()
+    val confirmEmail by viewModel.confirmEmail.collectAsState()
 
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) {
+    LaunchedEffect(isRegistrationComplete) {
+        if (isRegistrationComplete) {
             navController.navigate("navigation.Home") {
-                // Use route-based navigation instead of ID-based
                 popUpTo("navigation.Login") {
                     inclusive = true
                 }
             }
-            viewModel.resetLoginState()
+            viewModel.resetRegistrationState()
         }
+    }
+
+    LaunchedEffect(isEmailVerificationRequired) {
+        if (isEmailVerificationRequired) {
+            navController.navigate(EmailVerification(email = email)) {
+                popUpTo(Register) {
+                    inclusive = true
+                }
+            }
+            viewModel.resetRegistrationState()
+        }
+    }
+
+    var shouldAnimate by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1000)
+        shouldAnimate = false
     }
 
     AppTheme {
@@ -83,7 +107,7 @@ fun LoginScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Welcome Back",
+                            text = "Create Account",
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontWeight = FontWeight.Bold
                             ),
@@ -93,7 +117,7 @@ fun LoginScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "Sign in to continue",
+                            text = "Sign up to get started",
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
@@ -113,9 +137,37 @@ fun LoginScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         AuthTextField(
+                            value = name,
+                            onValueChange = viewModel::onNameChanged,
+                            label = "Full Name",
+                            leadingIcon = Icons.Filled.Person
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        AuthTextField(
+                            value = username,
+                            onValueChange = viewModel::onUsernameChanged,
+                            label = "Username",
+                            leadingIcon = Icons.Filled.Face
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        AuthTextField(
                             value = email,
                             onValueChange = viewModel::onEmailChanged,
                             label = "Email",
+                            leadingIcon = Icons.Filled.Email,
+                            keyboardType = KeyboardType.Email
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        AuthTextField(
+                            value = confirmEmail,
+                            onValueChange = viewModel::onConfirmEmailChanged,
+                            label = "Confirm Email",
                             leadingIcon = Icons.Filled.Email,
                             keyboardType = KeyboardType.Email
                         )
@@ -130,8 +182,8 @@ fun LoginScreen(
                             isPassword = true,
                             imeAction = ImeAction.Done,
                             onImeAction = {
-                                if (email.isNotBlank() && password.isNotBlank()) {
-                                    viewModel.login()
+                                if (name.isNotBlank() && email.isNotBlank() && password.isNotBlank()) {
+                                    viewModel.register()
                                 }
                             }
                         )
@@ -139,31 +191,30 @@ fun LoginScreen(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         AuthButton(
-                            text = "Sign In",
-                            onClick = { viewModel.login() },
+                            text = "Create Account",
+                            onClick = { viewModel.register() },
                             isLoading = isLoading,
-                            enabled = email.isNotBlank() && password.isNotBlank()
+                            enabled = name.isNotBlank() && email.isNotBlank() && password.isNotBlank()
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        loginMessage?.let { message ->
+                        registerResult?.let {
                             AuthMessage(
-                                message = message,
-                                isError = true
+                                message = it,
+                                isError = !it.startsWith("Registered")
                             )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        TextButton(onClick = { /* Implement forgot password */ }) {
-                            Text(
-                                text = "Forgot Password?",
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        Text(
+                            text = "By signing up, you agree to our Terms of Service and Privacy Policy",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
                 }
 
@@ -173,9 +224,9 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                TextButton(onClick = { navController.navigate("navigation.Register") }) {
+                TextButton(onClick = { navController.navigate("navigation.Login") }) {
                     Text(
-                        text = "Don't have an account? Sign Up",
+                        text = "Already have an account? Sign In",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.primary
