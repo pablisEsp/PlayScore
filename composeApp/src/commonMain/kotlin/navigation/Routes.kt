@@ -31,3 +31,6 @@ data class PostDetail(val postId: String)
 
 @Serializable
 data class EmailVerification(val email: String? = null)
+
+@Serializable
+data object ForgotPassword

@@ -96,6 +96,16 @@ class FirebaseAuthAndroid : FirebaseAuthInterface {
             false
         }
     }
+
+    override suspend fun sendPasswordResetEmail(email: String): Boolean {
+        return try {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+            true
+        } catch (e: Exception) {
+            println("Error sending password reset email: ${e.message}")
+            false
+        }
+    }
 }
 
 actual fun createFirebaseAuth(): FirebaseAuthInterface {

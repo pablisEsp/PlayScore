@@ -19,6 +19,7 @@ import viewmodel.PostViewModel
 import viewmodel.RegisterViewModel
 import viewmodel.SearchViewModel
 import viewmodel.EmailVerificationViewModel
+import viewmodel.ForgotPasswordViewModel
 import kotlin.coroutines.CoroutineContext
 import repository.PostRepository
 import viewmodel.TeamViewModel
@@ -47,6 +48,8 @@ val appModule = module {
     viewModelOf(::PostViewModel)
     viewModelOf(::SearchViewModel)
     viewModelOf(::EmailVerificationViewModel)
+    viewModelOf(::ForgotPasswordViewModel)
+
 
 }
 

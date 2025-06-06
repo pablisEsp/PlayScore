@@ -15,6 +15,7 @@ import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
 import org.koin.compose.koinInject
 import ui.auth.EmailVerificationScreen
+import ui.auth.ForgotPasswordScreen
 import ui.components.AppBottomNavBar
 import ui.home.HomeScreen
 import ui.auth.LoginScreen
@@ -69,6 +70,7 @@ fun AppNavHost(
                         email = verificationArgs.email
                     )
                 }
+                composable<ForgotPassword> { ForgotPasswordScreen(navController) }
                 composable<Home> { HomeScreen(navController) }
                 composable<Team> { TeamScreen(navController) }
                 composable<CreateTeam> { CreateTeamScreen(navController)}

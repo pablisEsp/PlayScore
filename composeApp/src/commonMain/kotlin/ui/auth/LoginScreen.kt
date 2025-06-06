@@ -22,6 +22,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import navigation.ForgotPassword
 import org.koin.compose.koinInject
 import ui.components.AuthButton
 import ui.components.AuthDivider
@@ -164,7 +165,7 @@ fun LoginScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        TextButton(onClick = { /* Implement forgot password */ }) {
+                        TextButton(onClick = { navController.navigate(ForgotPassword) }) {
                             Text(
                                 text = "Forgot Password?",
                                 style = MaterialTheme.typography.bodyMedium,
