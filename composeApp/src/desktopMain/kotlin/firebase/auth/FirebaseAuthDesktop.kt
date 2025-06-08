@@ -346,6 +346,37 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
 
         return idToken ?: ""
     }
+
+    override suspend fun sendEmailVerification(): Boolean {
+        val token = getIdToken()
+        if (token.isBlank()) {
+            println("Cannot send verification email: No authentication token")
+            return false
+        }
+
+        try {
+            println("Sending verification email to user: ${currentUser?.email}")
+            val response = withContext(Dispatchers.IO) {
+                client.post("$apiUrl/send-verification-email") {
+                    contentType(ContentType.Application.Json)
+                    header("Authorization", "Bearer $token")
+                }
+            }
+
+            val responseBody = response.body<AuthResponseBody>()
+            return if (responseBody.success) {
+                println("Verification email sent successfully")
+                true
+            } else {
+                println("Failed to send verification email: ${responseBody.errorMessage}")
+                false
+            }
+        } catch (e: Exception) {
+            println("Send verification email exception: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
 }
 
 actual fun createFirebaseAuth(): FirebaseAuthInterface = FirebaseAuthDesktop.getInstance()

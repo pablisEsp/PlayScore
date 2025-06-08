@@ -688,6 +688,10 @@ class TeamViewModel(
         }
     }
 
+    fun setShowPresidentLeaveWarning(show: Boolean) {
+        _showPresidentLeaveWarning.value = show
+    }
+
     // ----------------- TEAM JOINING ---------------- //
     private val _teamJoinRequests = MutableStateFlow<List<TeamJoinRequestWithUser>>(emptyList())
     val teamJoinRequests: StateFlow<List<TeamJoinRequestWithUser>> = _teamJoinRequests.asStateFlow()
