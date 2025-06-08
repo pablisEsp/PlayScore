@@ -159,7 +159,7 @@ fun PostDetailScreen(
                                     onLikeClicked = { postViewModel.likePost(post.id) },
                                     onPostClicked = {}
                                 )
-                                Divider(
+                                HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                                     thickness = 1.dp,
                                     color = MaterialTheme.colorScheme.outlineVariant

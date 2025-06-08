@@ -8,12 +8,15 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    kotlin("plugin.serialization") version "2.1.0"
+    kotlin("plugin.serialization") version "2.1.20"
 
     // Google services Gradle plugin
     id("com.google.gms.google-services")
 
     //id("dev.icerock.mobile.multiplatform-resources")
+
+    //IOS Implementation
+    //id("org.jetbrains.kotlin.native.cocoapods")
 }
 
 kotlin {
@@ -34,6 +37,21 @@ kotlin {
             isStatic = true
         }
     }
+    /*
+    cocoapods {
+        version = "1.0.0"
+        summary = "PlayScore Kotlin components"
+        homepage = "https://github.com/pablisEsp/PlayScore"
+        ios.deploymentTarget = "13.0" // Specify minimum iOS version
+        framework {
+            baseName = "ComposeApp"
+            isStatic = true
+        }
+        // Firebase dependencies
+        pod("Firebase/Core") { version = "10.19.0" }
+        pod("Firebase/Auth") { version = "10.19.0" }
+        pod("Firebase/Database") { version = "10.19.0" }
+    }*/
 
     jvm("desktop")
 
@@ -124,6 +142,7 @@ kotlin {
             //implementation("com.google.api-client:google-api-client:2.7.2")
 
         }
+
     }
 }
 
