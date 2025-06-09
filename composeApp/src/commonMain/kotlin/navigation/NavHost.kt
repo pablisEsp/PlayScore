@@ -14,6 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
 import org.koin.compose.koinInject
+import ui.admin.AdminPanelScreen
 import ui.auth.EmailVerificationScreen
 import ui.auth.ForgotPasswordScreen
 import ui.components.AppBottomNavBar
@@ -26,6 +27,7 @@ import ui.search.SearchScreen
 import ui.settings.SettingsScreen
 import ui.team.CreateTeamScreen
 import ui.team.TeamScreen
+import ui.tournament.CreateTournamentScreen
 
 @Composable
 fun AppNavHost(
@@ -76,6 +78,8 @@ fun AppNavHost(
                 composable<CreateTeam> { CreateTeamScreen(navController)}
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
+                composable<AdminPanel> { AdminPanelScreen(navController) }
+                composable<CreateTournament> { CreateTournamentScreen(navController) }
                 composable<Search> { backStackEntry ->
                     val searchArgs: Search = backStackEntry.toRoute()
                     SearchScreen(

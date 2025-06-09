@@ -12,6 +12,7 @@ import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import repository.FirebaseLikeRepository
 import repository.FirebasePostRepository
+import repository.FirebaseTournamentRepository
 import repository.LikeRepository
 import viewmodel.HomeViewModel
 import viewmodel.LoginViewModel
@@ -20,9 +21,12 @@ import viewmodel.RegisterViewModel
 import viewmodel.SearchViewModel
 import viewmodel.EmailVerificationViewModel
 import viewmodel.ForgotPasswordViewModel
+import viewmodel.AdminViewModel
 import kotlin.coroutines.CoroutineContext
 import repository.PostRepository
+import repository.TournamentRepository
 import viewmodel.TeamViewModel
+import viewmodel.UserViewModel
 
 // Common module for shared dependencies
 val appModule = module {
@@ -36,6 +40,7 @@ val appModule = module {
     //Repositories
     single<PostRepository> { FirebasePostRepository(get()) }
     single<LikeRepository> { FirebaseLikeRepository(get()) }
+    single<TournamentRepository> { FirebaseTournamentRepository(get()) }
 
     // Provide a default CoroutineContext for ViewModels
     single<CoroutineContext> { Dispatchers.Main }
@@ -49,6 +54,9 @@ val appModule = module {
     viewModelOf(::SearchViewModel)
     viewModelOf(::EmailVerificationViewModel)
     viewModelOf(::ForgotPasswordViewModel)
+    viewModelOf(::AdminViewModel)
+    viewModelOf(::UserViewModel)
+
 
 
 }

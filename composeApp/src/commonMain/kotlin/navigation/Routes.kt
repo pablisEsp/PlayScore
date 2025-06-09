@@ -34,3 +34,15 @@ data class EmailVerification(val email: String? = null)
 
 @Serializable
 data object ForgotPassword
+
+@Serializable
+data object Tournaments
+
+@Serializable
+data class TournamentDetail(val tournamentId: String)
+
+@Serializable
+data object CreateTournament
+
+@Serializable
+data object AdminPanel
