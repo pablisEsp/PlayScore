@@ -13,6 +13,7 @@ class FirebaseTournamentRepository(
         return try {
             database.getCollection("tournaments", ListSerializer(Tournament.serializer()))
         } catch (e: Exception) {
+            // The logged error suggests the exception occurs within database.getCollection
             emptyList()
         }
     }

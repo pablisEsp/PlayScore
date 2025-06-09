@@ -28,6 +28,9 @@ import ui.settings.SettingsScreen
 import ui.team.CreateTeamScreen
 import ui.team.TeamScreen
 import ui.tournament.CreateTournamentScreen
+import ui.tournament.EditTournamentScreen
+import ui.tournament.TournamentManagementScreen
+import ui.tournament.TournamentApplicationsScreen
 
 @Composable
 fun AppNavHost(
@@ -80,6 +83,25 @@ fun AppNavHost(
                 composable<Settings> { SettingsScreen(navController) }
                 composable<AdminPanel> { AdminPanelScreen(navController) }
                 composable<CreateTournament> { CreateTournamentScreen(navController) }
+                composable<TournamentManagement> {
+                    TournamentManagementScreen(navController)
+                }
+
+                composable<EditTournament> { backStackEntry ->
+                    val args: EditTournament = backStackEntry.toRoute()
+                    EditTournamentScreen(
+                        navController = navController,
+                        tournamentId = args.tournamentId
+                    )
+                }
+
+                composable<TournamentApplications> { backStackEntry ->
+                    val args: TournamentApplications = backStackEntry.toRoute()
+                    TournamentApplicationsScreen(
+                        navController = navController,
+                        tournamentId = args.tournamentId
+                    )
+                }
                 composable<Search> { backStackEntry ->
                     val searchArgs: Search = backStackEntry.toRoute()
                     SearchScreen(

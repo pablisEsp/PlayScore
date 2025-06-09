@@ -16,7 +16,7 @@ import repository.TournamentRepository
 class AdminViewModel(
     private val auth: FirebaseAuthInterface,
     private val database: FirebaseDatabaseInterface,
-    private val tournamentRepository: TournamentRepository
+    public val tournamentRepository: TournamentRepository
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -100,6 +100,24 @@ class AdminViewModel(
             false
         } finally {
             _isLoading.value = false
+        }
+    }
+
+    fun updateTournament(tournament: Tournament) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val success = tournamentRepository.updateTournament(tournament)
+                if (success) {
+                    loadTournaments() // Refresh the list
+                } else {
+                    _errorMessage.value = "Failed to update tournament"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 

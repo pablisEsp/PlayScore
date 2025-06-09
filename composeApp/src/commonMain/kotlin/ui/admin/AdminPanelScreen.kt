@@ -80,7 +80,7 @@ fun AdminPanelScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = { navController.navigate("navigation.Tournaments") },
+                            onClick = { navController.navigate("navigation.TournamentManagement") },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Manage Tournaments")

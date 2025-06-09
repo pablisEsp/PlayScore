@@ -6,13 +6,19 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.ServerValue
+import data.model.ApplicationStatus
+import data.model.BracketType
+import data.model.CreatorType
 import data.model.Like
 import data.model.Post
 import data.model.RequestStatus
 import data.model.Team
+import data.model.TeamApplication
 import data.model.TeamJoinRequest
 import data.model.TeamMembership
 import data.model.TeamRole
+import data.model.Tournament
+import data.model.TournamentStatus
 import data.model.User
 import data.model.UserRole
 import data.model.UserStats
@@ -358,6 +364,57 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                     if (like != null) items.add(like as T)
                 }
 
+                elementType.endsWith("data.model.Tournament") -> {
+                    val tournament = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        val key = childSnapshot.key ?: ""
+                        Tournament(
+                            id = key,
+                            name = valueMap["name"] as? String ?: "",
+                            description = valueMap["description"] as? String ?: "",
+                            creatorId = valueMap["creatorId"] as? String ?: "",
+                            creatorType = when (valueMap["creatorType"] as? String) {
+                                "TEAM_PRESIDENT" -> CreatorType.TEAM_PRESIDENT
+                                else -> CreatorType.ADMIN
+                            },
+                            startDate = valueMap["startDate"] as? String ?: "",
+                            endDate = valueMap["endDate"] as? String ?: "",
+                            status = when (valueMap["status"] as? String) {
+                                "REGISTRATION" -> TournamentStatus.REGISTRATION
+                                "ACTIVE" -> TournamentStatus.ACTIVE
+                                "COMPLETED" -> TournamentStatus.COMPLETED
+                                "CANCELLED" -> TournamentStatus.CANCELLED
+                                else -> TournamentStatus.UPCOMING
+                            },
+                            teamIds = (valueMap["teamIds"] as? List<String>) ?: emptyList(),
+                            maxTeams = (valueMap["maxTeams"] as? Long)?.toInt() ?: 8,
+                            bracketType = when (valueMap["bracketType"] as? String) {
+                                "DOUBLE_ELIMINATION" -> BracketType.DOUBLE_ELIMINATION
+                                "ROUND_ROBIN" -> BracketType.ROUND_ROBIN
+                                else -> BracketType.SINGLE_ELIMINATION
+                            }
+                        )
+                    }
+                    if (tournament != null) items.add(tournament as T)
+                }
+
+                elementType.endsWith("data.model.TeamApplication") -> {
+                    val application = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        val key = childSnapshot.key ?: ""
+                        TeamApplication(
+                            id = key,
+                            teamId = valueMap["teamId"] as? String ?: "",
+                            tournamentId = valueMap["tournamentId"] as? String ?: "",
+                            status = when (valueMap["status"] as? String) {
+                                "APPROVED" -> ApplicationStatus.APPROVED
+                                "REJECTED" -> ApplicationStatus.REJECTED
+                                else -> ApplicationStatus.PENDING
+                            },
+                            appliedAt = valueMap["appliedAt"] as? String ?: ""
+                        )
+                    }
+                    if (application != null) items.add(application as T)
+                }
+
                 else -> {
                     Log.e("FirebaseDatabase", "Unsupported element type: $elementType")
                     continue
@@ -440,6 +497,31 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             totalLosses = totalLosses
                         ) as T
                         continuation.resume(team)
+                    }else if (path.startsWith("tournaments/")) {
+                        val id = snapshot.key ?: path.split("/").last()
+                        val name = snapshot.child("name").getValue(String::class.java) ?: ""
+                        val description = snapshot.child("description").getValue(String::class.java) ?: ""
+                        val creatorId = snapshot.child("creatorId").getValue(String::class.java) ?: ""
+                        val creatorTypeStr = snapshot.child("creatorType").getValue(String::class.java) ?: "ADMIN"
+                        val startDate = snapshot.child("startDate").getValue(String::class.java) ?: ""
+                        val endDate = snapshot.child("endDate").getValue(String::class.java) ?: ""
+                        val statusStr = snapshot.child("status").getValue(String::class.java) ?: "UPCOMING"
+                        val maxTeams = snapshot.child("maxTeams").getValue(Int::class.java) ?: 8
+                        val bracketTypeStr = snapshot.child("bracketType").getValue(String::class.java) ?: "SINGLE_ELIMINATION"
+
+                        val tournament = Tournament(
+                            id = id,
+                            name = name,
+                            description = description,
+                            creatorId = creatorId,
+                            creatorType = CreatorType.valueOf(creatorTypeStr),
+                            startDate = startDate,
+                            endDate = endDate,
+                            status = TournamentStatus.valueOf(statusStr),
+                            maxTeams = maxTeams,
+                            bracketType = BracketType.valueOf(bracketTypeStr)
+                        ) as T
+                        continuation.resume(tournament)
                     }
                     else {
                         // For other document types
@@ -521,6 +603,14 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                 // For Team
                 map.containsKey("presidentId") && map.containsKey("playerIds") -> "data.model.Team"
 
+
+                map.containsKey("tournamentId") && map.containsKey("teamId") &&
+                        map.containsKey("appliedAt") -> "data.model.TeamApplication"
+
+                map.containsKey("bracketType") && map.containsKey("maxTeams") &&
+                        map.containsKey("startDate") && map.containsKey("endDate") -> "data.model.Tournament"
+
+
                 // Use class field if specified
                 else -> map["class"] as? String ?: "data.model.Post"
             }
@@ -561,6 +651,49 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         timestamp = map["timestamp"] as? String ?: "",
                         responseTimestamp = map["responseTimestamp"] as? String ?: "",
                         responseBy = map["responseBy"] as? String ?: ""
+                    ) as T
+                }
+
+                "data.model.Tournament" -> {
+                    data.model.Tournament(
+                        id = id,
+                        name = map["name"] as? String ?: "",
+                        description = map["description"] as? String ?: "",
+                        creatorId = map["creatorId"] as? String ?: "",
+                        creatorType = when (map["creatorType"] as? String) {
+                            "TEAM_PRESIDENT" -> data.model.CreatorType.TEAM_PRESIDENT
+                            else -> data.model.CreatorType.ADMIN
+                        },
+                        startDate = map["startDate"] as? String ?: "",
+                        endDate = map["endDate"] as? String ?: "",
+                        status = when (map["status"] as? String) {
+                            "REGISTRATION" -> data.model.TournamentStatus.REGISTRATION
+                            "ACTIVE" -> data.model.TournamentStatus.ACTIVE
+                            "COMPLETED" -> data.model.TournamentStatus.COMPLETED
+                            "CANCELLED" -> data.model.TournamentStatus.CANCELLED
+                            else -> data.model.TournamentStatus.UPCOMING
+                        },
+                        teamIds = map["teamIds"] as? List<String> ?: emptyList(),
+                        maxTeams = (map["maxTeams"] as? Number)?.toInt() ?: 8,
+                        bracketType = when (map["bracketType"] as? String) {
+                            "DOUBLE_ELIMINATION" -> data.model.BracketType.DOUBLE_ELIMINATION
+                            "ROUND_ROBIN" -> data.model.BracketType.ROUND_ROBIN
+                            else -> data.model.BracketType.SINGLE_ELIMINATION
+                        }
+                    ) as T
+                }
+
+                "data.model.TeamApplication" -> {
+                    data.model.TeamApplication(
+                        id = id,
+                        teamId = map["teamId"] as? String ?: "",
+                        tournamentId = map["tournamentId"] as? String ?: "",
+                        appliedAt = map["appliedAt"] as? String ?: "",
+                        status = when (map["status"] as? String) {
+                            "APPROVED" -> data.model.ApplicationStatus.APPROVED
+                            "REJECTED" -> data.model.ApplicationStatus.REJECTED
+                            else -> data.model.ApplicationStatus.PENDING
+                        }
                     ) as T
                 }
                 else -> {

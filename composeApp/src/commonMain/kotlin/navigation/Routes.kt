@@ -42,6 +42,15 @@ data object Tournaments
 data class TournamentDetail(val tournamentId: String)
 
 @Serializable
+data object TournamentManagement
+
+@Serializable
+data class EditTournament(val tournamentId: String)
+
+@Serializable
+data class TournamentApplications(val tournamentId: String)
+
+@Serializable
 data object CreateTournament
 
 @Serializable
