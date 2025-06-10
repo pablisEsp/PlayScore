@@ -21,13 +21,10 @@ import data.model.Tournament
 import data.model.TournamentStatus
 import data.model.User
 import data.model.UserRole
-import data.model.UserStats
-import firebase.database.FirebaseDatabaseInterface
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import java.util.Date
-import kotlin.collections.emptyList
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 

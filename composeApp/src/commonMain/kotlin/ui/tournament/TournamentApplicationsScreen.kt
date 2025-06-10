@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.ApplicationStatus
+import data.model.Team
 import data.model.TeamApplication
 import data.model.Tournament
 import firebase.database.FirebaseDatabaseInterface
@@ -80,13 +81,14 @@ fun TournamentApplicationsScreen(
 
         teamIds.forEach { teamId ->
             try {
-                val team = database.getDocument<Any>("teams/$teamId") as? Map<*, *>
-                val teamName = team?.get("name") as? String
-                if (teamName != null) {
-                    teamsMap[teamId] = teamName
+                // Change the type from Any to Team to match what getDocument returns for team paths
+                val team = database.getDocument<Team>("teams/$teamId")
+                if (team != null) {
+                    teamsMap[teamId] = team.name
                 }
             } catch (e: Exception) {
-                // Ignore errors for individual teams
+                // Log the error for debugging
+                println("Error loading team $teamId: ${e.message}")
             }
         }
 

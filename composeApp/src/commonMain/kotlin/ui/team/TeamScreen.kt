@@ -19,6 +19,7 @@ import data.model.TeamRole
 import org.koin.compose.koinInject
 import ui.components.LeaveTeamButton
 import ui.components.LocalNavController
+import ui.tournament.TeamTournamentScreen
 import viewmodel.TeamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +48,7 @@ fun TeamScreen(
     val tabTitles = remember(isTeamLeader, joinRequests) {
         val membersTabTitle = "Members" + if (isTeamLeader && joinRequests.isNotEmpty()) " (${joinRequests.size})" else ""
         // "Requests" tab is removed as its content is now part of the Members tab for leaders
-        listOf("Overview", membersTabTitle)
+        listOf("Overview", membersTabTitle, "Tournaments")
     }
     var selectedTabIndex by remember { mutableStateOf(0) }
 
@@ -124,6 +125,11 @@ fun TeamScreen(
                                 when (selectedTabIndex) {
                                     0 -> TeamOverview(team)
                                     1 -> TeamMembersTab(team, teamViewModel)
+                                    2 -> TeamTournamentScreen(
+                                        navController = navController,
+                                        teamViewModel = teamViewModel,
+                                        modifier = Modifier
+                                    )
                                 }
                             }
                         }
@@ -135,7 +141,8 @@ fun TeamScreen(
                             TeamManagementSheet(
                                 team = team,
                                 onDismiss = { showManagementSheet = false },
-                                viewModel = teamViewModel
+                                viewModel = teamViewModel,
+                                navController = navController
                             )
                         }
                     }
@@ -162,7 +169,7 @@ fun TeamHeader(
         ) {
             // If logo is available, display it
             if (team.logoUrl.isNotEmpty()) {
-                // You'd use an image loading library here like Coil
+                // use an image loading library here like Coil
                 Surface(
                     modifier = Modifier.size(64.dp),
                     shape = CircleShape
@@ -216,7 +223,8 @@ fun TeamHeader(
 fun TeamManagementSheet(
     team: Team,
     onDismiss: () -> Unit,
-    viewModel: TeamViewModel = koinInject()
+    viewModel: TeamViewModel = koinInject(),
+    navController: NavController
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
     val isPresident = currentUser?.teamMembership?.role == TeamRole.PRESIDENT

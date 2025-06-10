@@ -3,7 +3,6 @@ package repository
 import data.model.*
 import firebase.database.FirebaseDatabaseInterface
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.serializer
 
 class FirebaseTournamentRepository(
     private val database: FirebaseDatabaseInterface
@@ -82,7 +81,7 @@ class FirebaseTournamentRepository(
     override suspend fun getTeamApplications(tournamentId: String): List<TeamApplication> {
         return try {
             database.getCollectionFiltered(
-                "teamApplications",
+                "tournamentApplications",
                 "tournamentId",
                 tournamentId,
                 ListSerializer(TeamApplication.serializer())
@@ -94,7 +93,7 @@ class FirebaseTournamentRepository(
 
     override suspend fun applyTeamToTournament(application: TeamApplication): String {
         return try {
-            database.createDocument("teamApplications", application)
+            database.createDocument("tournamentApplications", application)
         } catch (e: Exception) {
             ""
         }
@@ -102,11 +101,38 @@ class FirebaseTournamentRepository(
 
     override suspend fun updateApplicationStatus(applicationId: String, status: ApplicationStatus): Boolean {
         return try {
-            database.updateFields(
-                "teamApplications",
+            // Get the application first
+            val application = database.getDocument<TeamApplication>("tournamentApplications/$applicationId")
+                ?: return false
+
+            // Update application status
+            val statusUpdateSuccess = database.updateFields(
+                "tournamentApplications",
                 applicationId,
                 mapOf("status" to status)
             )
+
+            // If approved, add team to tournament
+            if (status == ApplicationStatus.APPROVED && statusUpdateSuccess) {
+                val tournament = database.getDocument<Tournament>("tournaments/${application.tournamentId}")
+                    ?: return false
+
+                // Add team to tournament's teamIds if not already there
+                if (!tournament.teamIds.contains(application.teamId)) {
+                    val updatedTeamIds = tournament.teamIds + application.teamId
+
+                    // Update the tournament with the new team
+                    val tournamentUpdateSuccess = database.updateFields(
+                        "tournaments",
+                        application.tournamentId,
+                        mapOf("teamIds" to updatedTeamIds)
+                    )
+
+                    return tournamentUpdateSuccess
+                }
+            }
+
+            return statusUpdateSuccess
         } catch (e: Exception) {
             false
         }

@@ -1,6 +1,7 @@
 package navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -29,8 +30,11 @@ import ui.team.CreateTeamScreen
 import ui.team.TeamScreen
 import ui.tournament.CreateTournamentScreen
 import ui.tournament.EditTournamentScreen
+import ui.tournament.TeamTournamentScreen
 import ui.tournament.TournamentManagementScreen
 import ui.tournament.TournamentApplicationsScreen
+import ui.tournament.TournamentDetailScreen
+import viewmodel.TeamViewModel
 
 @Composable
 fun AppNavHost(
@@ -83,6 +87,21 @@ fun AppNavHost(
                 composable<Settings> { SettingsScreen(navController) }
                 composable<AdminPanel> { AdminPanelScreen(navController) }
                 composable<CreateTournament> { CreateTournamentScreen(navController) }
+                composable<TeamTournaments> {
+                    val teamViewModel = koinInject<TeamViewModel>()
+                    TeamTournamentScreen(
+                        navController = navController,
+                        teamViewModel = teamViewModel,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                composable<TeamTournamentDetail> { backStackEntry ->
+                    val routeArgs = backStackEntry.toRoute<TeamTournamentDetail>()
+                    TournamentDetailScreen(
+                        navController = navController,
+                        tournamentId = routeArgs.tournamentId
+                    )
+                }
                 composable<TournamentManagement> {
                     TournamentManagementScreen(navController)
                 }
