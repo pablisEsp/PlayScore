@@ -21,12 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.UserRole
 import org.koin.compose.koinInject
 import viewmodel.UserViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
     val viewModel: UserViewModel = koinInject()
@@ -35,21 +35,24 @@ fun SettingsScreen(navController: NavController) {
     val isAdmin = currentUser?.globalRole == UserRole.ADMIN ||
                  currentUser?.globalRole == UserRole.SUPER_ADMIN
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings") }
-            )
-        }
-    ) {
+    Scaffold() { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(
+                    // Add padding only at the bottom for the navigation bar
+                    bottom = innerPadding.calculateBottomPadding(),
+                    // Add horizontal padding to align with other screens
+                    start = 16.dp,
+                    end = 16.dp,
+                    // Add top padding to create space from the title
+                    top = 20.dp
+                )
         ) {
             ListItem(
                 headlineContent = { Text("Account Settings") },
                 leadingContent = { Icon(Icons.Default.Person, contentDescription = null) },
-                trailingContent = { Icon(Icons.Default.ArrowForward, contentDescription = null) },
+                trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
                 modifier = Modifier.clickable { /* Navigate to account settings */ }
             )
 

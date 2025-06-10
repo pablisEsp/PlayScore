@@ -28,12 +28,11 @@ fun ProfileScreen(
     val currentUser by viewModel.currentUser.collectAsState()
 
     Scaffold(
-    ) { paddingValues ->
+    ) {
         if (currentUser == null) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
+                    .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text("Loading profile...")
@@ -44,7 +43,6 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

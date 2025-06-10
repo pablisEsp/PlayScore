@@ -26,19 +26,10 @@ fun AdminPanelScreen(
     val isAdmin = currentUser?.globalRole?.name?.contains("ADMIN") == true
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Admin Panel") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .padding(16.dp)
         ) {
             if (!isAdmin) {
