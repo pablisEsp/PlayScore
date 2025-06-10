@@ -123,7 +123,7 @@ fun RoleManagementDropdown(
                 }
             )
 
-            // Add divider between sections
+            // Divider between sections
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Team management action section

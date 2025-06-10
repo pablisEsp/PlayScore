@@ -113,7 +113,7 @@ fun CommentItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TimeAgoText(timestamp = comment.createdAt)
 
-                    // Add dropdown menu
+                    // Dropdown menu
                     Box {
                         IconButton(onClick = { showMenu = true }) {
                             Icon(

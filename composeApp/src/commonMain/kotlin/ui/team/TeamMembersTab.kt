@@ -62,7 +62,7 @@ fun TeamMembersTab(
                 currentUserId = currentUserId,
                 viewModel = viewModel
             )
-            // Add some space if there are requests, before showing members
+            // Space if there are requests, before showing members
             val joinRequests by viewModel.teamJoinRequests.collectAsState()
             if (joinRequests.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))

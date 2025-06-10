@@ -451,7 +451,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         ) as T
                         continuation.resume(post)
                     }else if (path.startsWith("teams/")) {
-                        // Add special handling for teams
+                        // Special handling for teams
                         val id = snapshot.key ?: path.split("/").last()
                         val name = snapshot.child("name").getValue(String::class.java) ?: ""
                         val presidentId =
@@ -570,7 +570,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
             }
     }
 
-    // Add this extension function to convert Post to Map
+    // Extension function to convert Post to Map
     private fun Post.toMap(): Map<String, Any?> {
         return mapOf(
             "authorId" to authorId,

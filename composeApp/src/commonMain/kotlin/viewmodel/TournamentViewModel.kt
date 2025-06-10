@@ -48,6 +48,8 @@ class TournamentViewModel(
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
+    private var allTournamentsCache: List<Tournament>? = null
+
     // Get a tournament by ID
     fun getTournamentById(tournamentId: String) {
         viewModelScope.launch {
@@ -59,6 +61,7 @@ class TournamentViewModel(
                     "tournaments",
                     serializer = ListSerializer(Tournament.serializer()) // Use ListSerializer
                 )
+                allTournamentsCache = allTournaments // Update the cache
                 val tournament = allTournaments.find { it.id == tournamentId }
 
                 if (tournament != null) {
@@ -97,6 +100,7 @@ class TournamentViewModel(
                     "tournaments",
                     serializer = kotlinx.serialization.builtins.ListSerializer(Tournament.serializer())
                 )
+                allTournamentsCache = allTournaments // Update the cache
 
                 // Filter tournaments that:
                 // 1. Are open for registration
@@ -124,6 +128,7 @@ class TournamentViewModel(
                     "tournaments",
                     serializer = kotlinx.serialization.builtins.ListSerializer(Tournament.serializer())
                 )
+                allTournamentsCache = allTournaments // Update the cache
 
                 // Filter tournaments where the team is participating
                 _teamTournaments.value = allTournaments.filter { tournament ->
@@ -258,39 +263,69 @@ class TournamentViewModel(
         }
     }
 
+    fun checkTournamentDateOverlap(tournamentToCheck: Tournament): List<Tournament> {
+        val overlappingTournaments = mutableListOf<Tournament>()
+        // Ensure cache is used, if null, this will result in emptyList, preventing null pointer.
+        val currentAllTournaments = allTournamentsCache ?: run {
+            // Optionally, you could trigger a load of all tournaments here if the cache is empty,
+            // but for now, we'll rely on it being populated by other calls.
+            // Or log a warning: println("Warning: allTournamentsCache is null during overlap check.")
+            emptyList()
+        }
+
+
+        // Check against tournaments the team is already participating in
+        for (existingTournamentInTeam in _teamTournaments.value) {
+            if (doDatesOverlap(tournamentToCheck, existingTournamentInTeam)) {
+                overlappingTournaments.add(existingTournamentInTeam)
+            }
+        }
+
+        // Also check against tournaments with pending applications
+        val pendingApplications = _teamApplications.value
+            .filter { it.status == ApplicationStatus.PENDING }
+
+        for (application in pendingApplications) {
+            // Use the cache to find the tournament details
+            val pendingTournament = currentAllTournaments.find { it.id == application.tournamentId }
+                ?: continue // If not found in cache, skip
+
+            if (doDatesOverlap(tournamentToCheck, pendingTournament)) {
+                // Avoid adding the same tournament multiple times if it's both in teamTournaments and pending (edge case)
+                if (!overlappingTournaments.any { it.id == pendingTournament.id }) {
+                    overlappingTournaments.add(pendingTournament)
+                }
+            }
+        }
+        return overlappingTournaments
+    }
+
+    private fun doDatesOverlap(tournament1: Tournament, tournament2: Tournament): Boolean {
+        // Simple date comparison (assuming format YYYY-MM-DD)
+        val start1 = tournament1.startDate
+        val end1 = tournament1.endDate
+        val start2 = tournament2.startDate
+        val end2 = tournament2.endDate
+
+        // Tournaments overlap if one starts before the other ends, and vice-versa
+        // !(end1 < start2 || end2 < start1)
+        // This means they overlap if (start1 <= end2 && start2 <= end1)
+        return start1 <= end2 && start2 <= end1
+    }
+
     // Get tournament standings - for active or completed tournaments
     fun loadTournamentStandings(tournamentId: String) {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val tournament = database.getDocument<Tournament>("tournaments/$tournamentId")
-                    ?: throw Exception("Tournament not found")
-
-                _currentTournament.value = tournament
-
-                // Additional logic to load standings data would go here
-                // This would depend on your tournament data model
-            } catch (e: Exception) {
-                _errorMessage.value = "Failed to load tournament standings: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        // Placeholder
     }
+}
 
     // Get tournament schedule/matches - for active tournaments
     fun loadTournamentSchedule(tournamentId: String) {
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                // Implementation would depend on your tournament match data model
-            } catch (e: Exception) {
-                _errorMessage.value = "Failed to load tournament schedule: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        // Placeholder
     }
+}
 
     fun clearSuccessMessage() {
         _successMessage.value = null

@@ -85,7 +85,7 @@ fun LoginScreen(
                     )
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        // Add email verification banner at the top
+                        // Email verification banner at the top
                         EmailVerificationBanner(
                             isVisible = isEmailVerificationRequired,
                             onResendClick = { viewModel.resendVerificationEmail() },

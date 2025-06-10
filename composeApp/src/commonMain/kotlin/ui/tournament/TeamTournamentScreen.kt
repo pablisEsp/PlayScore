@@ -40,6 +40,9 @@ fun TeamTournamentScreen(
     val successMessage by tournamentViewModel.successMessage.collectAsState()
     var showSizeWarningDialog by remember { mutableStateOf(false) }
     var tournamentToApplyTo by remember { mutableStateOf<Tournament?>(null) }
+    var showDateOverlapDialog by remember { mutableStateOf(false) }
+    var overlappingTournaments by remember { mutableStateOf<List<Tournament>>(emptyList()) }
+
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -174,20 +177,28 @@ fun TeamTournamentScreen(
                                     items(availableTournaments) { tournament ->
                                         AvailableTournamentItem(
                                             tournament = tournament,
-                                            // Change the onApply lambda in AvailableTournamentItem to check team size
                                             onApply = {
                                                 if (isTeamLeader) {
                                                     currentTeam?.let { team ->
-                                                        // Calculate team size
+                                                        // Store the tournament for potential application
+                                                        tournamentToApplyTo = tournament
+
+                                                        // First check for date overlaps
+                                                        val overlaps = tournamentViewModel.checkTournamentDateOverlap(tournament)
+                                                        if (overlaps.isNotEmpty()) {
+                                                            overlappingTournaments = overlaps
+                                                            showDateOverlapDialog = true
+                                                            return@let
+                                                        }
+
+                                                        // Then check for team size
                                                         val teamSize = 1 + (if (team.vicePresidentId != null) 1 else 0) +
                                                                 team.captainIds.size + team.playerIds.size
 
                                                         if (teamSize < 5) {
-                                                            // Show warning dialog
-                                                            tournamentToApplyTo = tournament
                                                             showSizeWarningDialog = true
                                                         } else {
-                                                            // Team size is good, apply directly
+                                                            // All good, apply directly
                                                             team.id.let { teamId ->
                                                                 tournamentViewModel.applyToTournament(tournament, teamId)
                                                             }
@@ -250,8 +261,42 @@ fun TeamTournamentScreen(
                                 }
                             )
                         }
-                    }
 
+                        // Replace the current dialog implementation with this warning version
+                        if (showDateOverlapDialog && overlappingTournaments.isNotEmpty()) {
+                            AlertDialog(
+                                onDismissRequest = {
+                                    showDateOverlapDialog = false
+                                    overlappingTournaments = emptyList()
+                                    tournamentToApplyTo = null
+                                },
+                                title = { Text("Cannot Apply - Date Conflict") },
+                                text = {
+                                    Column {
+                                        Text("You cannot apply to this tournament as it overlaps with:")
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        overlappingTournaments.forEach { tournament ->
+                                            Text("• ${tournament.name}: ${tournament.startDate} to ${tournament.endDate}")
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Teams cannot participate in multiple tournaments with overlapping dates.", fontWeight = FontWeight.Bold)
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showDateOverlapDialog = false
+                                            overlappingTournaments = emptyList()
+                                            tournamentToApplyTo = null
+                                        }
+                                    ) {
+                                        Text("OK")
+                                    }
+                                }
+                            )
+                        }
+
+                    }
             }
         }
     }

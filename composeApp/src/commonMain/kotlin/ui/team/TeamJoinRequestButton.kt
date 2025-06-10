@@ -26,7 +26,7 @@ fun TeamJoinRequestButton(
     val userPendingRequests by viewModel.userPendingRequests.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Add state to control visibility
+    // State to control visibility
     var readyToShow by remember { mutableStateOf(false) }
 
     // Load current user and their pending requests when component mounts

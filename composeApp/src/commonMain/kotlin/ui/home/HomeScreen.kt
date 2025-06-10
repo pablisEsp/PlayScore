@@ -193,7 +193,7 @@ fun PostCard(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    // Add a dot separator
+                    // Dot separator
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "•",

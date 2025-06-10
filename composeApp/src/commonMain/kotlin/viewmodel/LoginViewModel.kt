@@ -90,7 +90,7 @@ class LoginViewModel(
         }
     }
 
-    // Add a new function to resend verification email
+    // Function to resend verification email
     fun resendVerificationEmail() {
         viewModelScope.launch {
             _isLoading.value = true
