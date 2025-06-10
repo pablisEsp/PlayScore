@@ -63,37 +63,61 @@ fun TournamentApplicationsScreen(
 ) {
     var tournament by remember { mutableStateOf<Tournament?>(null) }
     var applications by remember { mutableStateOf<List<TeamApplication>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) } // Start with loading state
     var teams by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     // Load tournament and applications
     LaunchedEffect(tournamentId) {
-        isLoading = true
-        tournament = tournamentRepository.getTournamentById(tournamentId)
-        applications = tournamentRepository.getTeamApplications(tournamentId)
+        try {
+            isLoading = true
 
-        // Load team names for all applications
-        val teamIds = applications.map { it.teamId }.distinct()
-        val teamsMap = mutableMapOf<String, String>()
-
-        teamIds.forEach { teamId ->
-            try {
-                // Change the type from Any to Team to match what getDocument returns for team paths
-                val team = database.getDocument<Team>("teams/$teamId")
-                if (team != null) {
-                    teamsMap[teamId] = team.name
-                }
-            } catch (e: Exception) {
-                // Log the error for debugging
-                println("Error loading team $teamId: ${e.message}")
+            // Load tournament data
+            val fetchedTournament = tournamentRepository.getTournamentById(tournamentId)
+            if (fetchedTournament == null) {
+                errorMessage = "Tournament not found"
+                isLoading = false
+                return@LaunchedEffect
             }
-        }
 
-        teams = teamsMap
-        isLoading = false
+            tournament = fetchedTournament
+
+            // Load team applications
+            val fetchedApplications = tournamentRepository.getTeamApplications(tournamentId)
+            applications = fetchedApplications
+
+            // Load team names for all applications
+            val teamIds = fetchedApplications.map { it.teamId }.distinct()
+            val teamsMap = mutableMapOf<String, String>()
+
+            teamIds.forEach { teamId ->
+                try {
+                    val team = database.getDocument<Team>("teams/$teamId")
+                    if (team != null) {
+                        teamsMap[teamId] = team.name
+                    }
+                } catch (e: Exception) {
+                    println("Error loading team $teamId: ${e.message}")
+                }
+            }
+
+            teams = teamsMap
+        } catch (e: Exception) {
+            errorMessage = "Failed to load data: ${e.message}"
+        } finally {
+            isLoading = false
+        }
+    }
+
+    // Show error message if any
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            errorMessage = null
+        }
     }
 
     Scaffold(
@@ -164,37 +188,45 @@ fun TournamentApplicationsScreen(
                                 teamName = teams[application.teamId] ?: "Unknown Team",
                                 onApprove = {
                                     scope.launch {
-                                        val success = tournamentRepository.updateApplicationStatus(
-                                            application.id,
-                                            ApplicationStatus.APPROVED
-                                        )
-                                        if (success) {
-                                            // Update local state to reflect change
-                                            applications = applications.map { app ->
-                                                if (app.id == application.id) app.copy(status = ApplicationStatus.APPROVED)
-                                                else app
+                                        try {
+                                            val success = tournamentRepository.updateApplicationStatus(
+                                                application.id,
+                                                ApplicationStatus.APPROVED
+                                            )
+                                            if (success) {
+                                                // Update local state to reflect change
+                                                applications = applications.map { app ->
+                                                    if (app.id == application.id) app.copy(status = ApplicationStatus.APPROVED)
+                                                    else app
+                                                }
+                                                snackbarHostState.showSnackbar("Team approved")
+                                            } else {
+                                                snackbarHostState.showSnackbar("Failed to approve team")
                                             }
-                                            snackbarHostState.showSnackbar("Team approved")
-                                        } else {
-                                            snackbarHostState.showSnackbar("Failed to approve team")
+                                        } catch (e: Exception) {
+                                            snackbarHostState.showSnackbar("Error: ${e.message}")
                                         }
                                     }
                                 },
                                 onReject = {
                                     scope.launch {
-                                        val success = tournamentRepository.updateApplicationStatus(
-                                            application.id,
-                                            ApplicationStatus.REJECTED
-                                        )
-                                        if (success) {
-                                            // Update local state to reflect change
-                                            applications = applications.map { app ->
-                                                if (app.id == application.id) app.copy(status = ApplicationStatus.REJECTED)
-                                                else app
+                                        try {
+                                            val success = tournamentRepository.updateApplicationStatus(
+                                                application.id,
+                                                ApplicationStatus.REJECTED
+                                            )
+                                            if (success) {
+                                                // Update local state to reflect change
+                                                applications = applications.map { app ->
+                                                    if (app.id == application.id) app.copy(status = ApplicationStatus.REJECTED)
+                                                    else app
+                                                }
+                                                snackbarHostState.showSnackbar("Team rejected")
+                                            } else {
+                                                snackbarHostState.showSnackbar("Failed to reject team")
                                             }
-                                            snackbarHostState.showSnackbar("Team rejected")
-                                        } else {
-                                            snackbarHostState.showSnackbar("Failed to reject team")
+                                        } catch (e: Exception) {
+                                            snackbarHostState.showSnackbar("Error: ${e.message}")
                                         }
                                     }
                                 }

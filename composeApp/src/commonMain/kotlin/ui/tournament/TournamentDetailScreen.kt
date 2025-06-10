@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,12 +17,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.ApplicationStatus
+import data.model.Team
 import data.model.TeamApplication
 import data.model.TeamRole
 import data.model.Tournament
 import data.model.TournamentStatus
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import repository.TournamentRepository
 import viewmodel.TeamViewModel
 import viewmodel.TournamentViewModel
 
@@ -41,6 +44,25 @@ fun TournamentDetailScreen(
     val teamApplication by tournamentViewModel.teamApplication.collectAsState()
     val successMessage by tournamentViewModel.successMessage.collectAsState()
 
+    val refreshKey = rememberSaveable { mutableStateOf(0) }
+
+    LaunchedEffect(navController) {
+        val navBackStackEntry = navController.currentBackStackEntry
+        val previousEntry = navController.previousBackStackEntry
+        if (previousEntry?.destination?.route?.contains("applications") == true) {
+            refreshKey.value++
+        }
+    }
+
+    // Use the ViewModel's method to load tournament data
+    LaunchedEffect(tournamentId, refreshKey.value) {
+        tournamentViewModel.getTournamentById(tournamentId) // Call ViewModel method
+
+        currentTeamFromState?.id?.let { teamId ->
+            tournamentViewModel.checkTeamApplication(tournamentId, teamId)
+        }
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -48,14 +70,6 @@ fun TournamentDetailScreen(
         val team = currentTeamFromState
         val role = currentUser?.teamMembership?.role
         team != null && (role == TeamRole.PRESIDENT || role == TeamRole.VICE_PRESIDENT)
-    }
-
-    LaunchedEffect(tournamentId, currentTeamFromState?.id) {
-        tournamentViewModel.getTournamentById(tournamentId)
-        val team = currentTeamFromState
-        if (team != null) {
-            tournamentViewModel.checkTeamApplication(tournamentId, team.id)
-        }
     }
 
     LaunchedEffect(errorMessage) {
@@ -125,10 +139,12 @@ fun TournamentDetailScreen(
                                     tournamentViewModel.withdrawApplication(appId, teamId)
                                 }
                             }
-                        }
+                        },
+                        currentTeam = currentTeamFromState
                     )
                 }
             }
+
         }
     }
 }
@@ -141,91 +157,108 @@ fun TournamentDetails(
     currentTeamId: String?,
     onApplyClick: () -> Unit,
     onWithdrawClick: () -> Unit,
-    modifier: Modifier = Modifier
+    currentTeam: Team?,
+    modifier: Modifier = Modifier // Default modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(tournament.name, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-        Spacer(modifier = Modifier.height(8.dp))
+    Box(modifier = Modifier.fillMaxSize()) { // Outer Box to hold content and dialog
+        // Single scrollable Column for all content
+        Column(
+            modifier = modifier // Use the modifier passed to the function
+                .fillMaxSize() // Ensure this Column fills the Box
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Content previously in the inner Column is now directly here
+            Text(tournament.name, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(8.dp))
 
-        StatusChip(status = tournament.status)
-        Spacer(modifier = Modifier.height(16.dp))
+            StatusChip(status = tournament.status)
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                // InfoRow(Icons.Filled.Games, "Game", tournament.game) // Example: Assuming 'game' was a field
-                // InfoRow(Icons.Filled.Computer, "Platform", tournament.platform)
-                // InfoRow(Icons.Filled.Public, "Region", tournament.region)
-                InfoRow(Icons.Filled.DateRange, "Start Date", formatDate(tournament.startDate))
-                InfoRow(Icons.Filled.DateRange, "End Date", formatDate(tournament.endDate))
-                InfoRow(label = "Max Teams", value = tournament.maxTeams.toString())
-                InfoRow(label = "Bracket Type", value = tournament.bracketType.name.replace('_', ' '))
-                // InfoRow(Icons.Filled.AttachMoney, "Entry Fee", "${tournament.entryFee} ${tournament.currency}")
-                // InfoRow(Icons.Filled.EmojiEvents, "Prize Pool", "${tournament.prizePool} ${tournament.currency}")
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Registration", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                // InfoRow(Icons.Filled.EventBusy, "Deadline", formatDate(tournament.registrationDeadline))
-                InfoRow(label = "Teams Registered", value = "${tournament.teamIds.size} / ${tournament.maxTeams}")
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (tournament.description.isNotEmpty()) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Description", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(tournament.description, style = MaterialTheme.typography.bodyMedium)
+                    InfoRow(Icons.Filled.DateRange, "Start Date", formatDate(tournament.startDate))
+                    InfoRow(Icons.Filled.DateRange, "End Date", formatDate(tournament.endDate))
+                    InfoRow(label = "Max Teams", value = tournament.maxTeams.toString())
+                    InfoRow(label = "Bracket Type", value = tournament.bracketType.name.replace('_', ' '))
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-        }
 
-        // Application Status and Actions
-        if (currentTeamId != null) { // Only show application section if user is in a team
-            teamApplication?.let { app ->
-                ApplicationStatusCard(application = app)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (app.status == ApplicationStatus.PENDING && canApply) {
-                    Button(
-                        onClick = onWithdrawClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Withdraw Application")
-                    }
-                }
-            } ?: run { // No application yet
-                if (tournament.status == TournamentStatus.REGISTRATION && canApply) {
-                    Button(
-                        onClick = onApplyClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = tournament.teamIds.size < tournament.maxTeams // Disable if full
-                    ) {
-                        Text(if (tournament.teamIds.size < tournament.maxTeams) "Apply to Tournament" else "Tournament Full")
-                    }
-                } else if (tournament.status != TournamentStatus.REGISTRATION) {
-                    Text("Registration for this tournament is closed.", style = MaterialTheme.typography.bodyMedium)
-                } else if (!canApply) {
-                     Text("Only team leaders (President or Vice-President) can apply.", style = MaterialTheme.typography.bodyMedium)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Registration", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    InfoRow(label = "Teams Registered", value = "${tournament.teamIds.size} / ${tournament.maxTeams}")
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (tournament.description.isNotEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Description", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(tournament.description, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Application Status and Actions
+            if (currentTeamId != null) {
+                if (tournament.teamIds.contains(currentTeamId)) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "Your team is registered for this tournament",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                } else {
+                    teamApplication?.let { app ->
+                        ApplicationStatusCard(application = app)
+                        if (app.status == ApplicationStatus.PENDING && canApply) {
+                            Button(
+                                onClick = onWithdrawClick,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Withdraw Application")
+                            }
+                        }
+                    } ?: run { // No application yet
+                        if (tournament.status == TournamentStatus.REGISTRATION && canApply) {
+                            Button(
+                                onClick = onApplyClick,  // Just call onApplyClick directly without size checking
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = tournament.teamIds.size < tournament.maxTeams
+                            ) {
+                                Text(if (tournament.teamIds.size < tournament.maxTeams) "Apply to Tournament" else "Tournament Full")
+                            }
+                        } else if (tournament.status != TournamentStatus.REGISTRATION) {
+                            Text("Registration for this tournament is closed.", style = MaterialTheme.typography.bodyMedium)
+                        } else if (!canApply) {
+                            Text("Only team leaders (President or Vice-President) can apply.", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            // TODO: Add sections for Standings, Matches, Participants if applicable based on tournament status
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        // TODO: Add sections for Standings, Matches, Participants if applicable based on tournament status
+
     }
 }
 
@@ -251,7 +284,6 @@ fun StatusChip(status: TournamentStatus) {
         TournamentStatus.ACTIVE -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer // Changed ONGOING to ACTIVE
         TournamentStatus.COMPLETED -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
         TournamentStatus.CANCELLED -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-        // Removed 'else' as all enum cases are covered
     }
 
     Surface(

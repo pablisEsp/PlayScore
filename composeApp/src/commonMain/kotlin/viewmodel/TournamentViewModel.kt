@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.serialization.builtins.ListSerializer
 
 class TournamentViewModel(
     private val auth: FirebaseAuthInterface,
@@ -21,7 +22,7 @@ class TournamentViewModel(
 ) : ViewModel() {
 
     // Tournament states
-    private val _currentTournament = MutableStateFlow<Tournament?>(null)
+    val _currentTournament = MutableStateFlow<Tournament?>(null)
     val currentTournament: StateFlow<Tournament?> = _currentTournament.asStateFlow()
 
     private val _availableTournaments = MutableStateFlow<List<Tournament>>(emptyList())
@@ -51,11 +52,24 @@ class TournamentViewModel(
     fun getTournamentById(tournamentId: String) {
         viewModelScope.launch {
             _isLoading.value = true
+            _errorMessage.value = null // Clear previous error
             try {
-                val tournament = database.getDocument<Tournament>("tournaments/$tournamentId")
-                _currentTournament.value = tournament
+                // Fetch all tournaments and find the specific one by ID
+                val allTournaments = database.getCollection<Tournament>(
+                    "tournaments",
+                    serializer = ListSerializer(Tournament.serializer()) // Use ListSerializer
+                )
+                val tournament = allTournaments.find { it.id == tournamentId }
+
+                if (tournament != null) {
+                    _currentTournament.value = tournament
+                } else {
+                    _errorMessage.value = "Tournament not found"
+                    _currentTournament.value = null // Clear current tournament if not found
+                }
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to load tournament: ${e.message}"
+                _currentTournament.value = null // Clear current tournament on error
             } finally {
                 _isLoading.value = false
             }

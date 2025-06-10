@@ -38,6 +38,8 @@ fun TeamTournamentScreen(
     val isLoadingTournaments by tournamentViewModel.isLoading.collectAsState()
     val errorMessage by tournamentViewModel.errorMessage.collectAsState()
     val successMessage by tournamentViewModel.successMessage.collectAsState()
+    var showSizeWarningDialog by remember { mutableStateOf(false) }
+    var tournamentToApplyTo by remember { mutableStateOf<Tournament?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -172,10 +174,24 @@ fun TeamTournamentScreen(
                                     items(availableTournaments) { tournament ->
                                         AvailableTournamentItem(
                                             tournament = tournament,
+                                            // Change the onApply lambda in AvailableTournamentItem to check team size
                                             onApply = {
                                                 if (isTeamLeader) {
-                                                    currentTeam?.id?.let { teamId ->
-                                                        tournamentViewModel.applyToTournament(tournament, teamId)
+                                                    currentTeam?.let { team ->
+                                                        // Calculate team size
+                                                        val teamSize = 1 + (if (team.vicePresidentId != null) 1 else 0) +
+                                                                team.captainIds.size + team.playerIds.size
+
+                                                        if (teamSize < 5) {
+                                                            // Show warning dialog
+                                                            tournamentToApplyTo = tournament
+                                                            showSizeWarningDialog = true
+                                                        } else {
+                                                            // Team size is good, apply directly
+                                                            team.id.let { teamId ->
+                                                                tournamentViewModel.applyToTournament(tournament, teamId)
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             },
@@ -198,7 +214,42 @@ fun TeamTournamentScreen(
                             }
                         }
 
-                        // Your floating action button code if needed
+                        // Add this dialog at the end of the Box in TeamTournamentScreen
+                        if (showSizeWarningDialog && tournamentToApplyTo != null) {
+                            AlertDialog(
+                                onDismissRequest = {
+                                    showSizeWarningDialog = false
+                                    tournamentToApplyTo = null
+                                },
+                                title = { Text("Team Size Warning") },
+                                text = {
+                                    Text("Your team currently has fewer than 5 members. Tournament participation requires at least 5 players. Are you sure you want to proceed with your application?\n\nFailure to field a complete team on tournament day may result in penalties.")
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showSizeWarningDialog = false
+                                            currentTeam?.id?.let { teamId ->
+                                                tournamentToApplyTo?.let { tournament ->
+                                                    tournamentViewModel.applyToTournament(tournament, teamId)
+                                                }
+                                            }
+                                            tournamentToApplyTo = null
+                                        }
+                                    ) {
+                                        Text("Proceed Anyway")
+                                    }
+                                },
+                                dismissButton = {
+                                    OutlinedButton(onClick = {
+                                        showSizeWarningDialog = false
+                                        tournamentToApplyTo = null
+                                    }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
                     }
 
             }
