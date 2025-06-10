@@ -41,11 +41,10 @@ fun SettingsScreen(navController: NavController) {
                 title = { Text("Settings") }
             )
         }
-    ) { paddingValues ->
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
         ) {
             ListItem(
                 headlineContent = { Text("Account Settings") },

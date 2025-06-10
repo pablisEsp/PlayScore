@@ -1,29 +1,59 @@
 package navigation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import firebase.auth.FirebaseAuthInterface
+import org.jetbrains.compose.resources.InternalResourceApi
+import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
+import playscore.composeapp.generated.resources.Res
+import playscore.composeapp.generated.resources.greenlogo
 import ui.admin.AdminPanelScreen
 import ui.auth.EmailVerificationScreen
 import ui.auth.ForgotPasswordScreen
+import ui.auth.LoginScreen
+import ui.auth.RegisterScreen
 import ui.components.AppBottomNavBar
 import ui.home.HomeScreen
-import ui.auth.LoginScreen
 import ui.post.PostDetailScreen
 import ui.profile.ProfileScreen
-import ui.auth.RegisterScreen
 import ui.search.SearchScreen
 import ui.settings.SettingsScreen
 import ui.team.CreateTeamScreen
@@ -31,9 +61,10 @@ import ui.team.TeamScreen
 import ui.tournament.CreateTournamentScreen
 import ui.tournament.EditTournamentScreen
 import ui.tournament.TeamTournamentScreen
-import ui.tournament.TournamentManagementScreen
 import ui.tournament.TournamentApplicationsScreen
 import ui.tournament.TournamentDetailScreen
+import ui.tournament.TournamentManagementScreen
+import utils.isDesktop
 import viewmodel.TeamViewModel
 
 @Composable
@@ -56,7 +87,55 @@ fun AppNavHost(
         Settings::class.qualifiedName
     )
 
+    // Define when to hide the top bar (authentication screens)
+    val hideTopBar = currentRoute in listOf(
+        Login::class.qualifiedName,
+        Register::class.qualifiedName,
+        EmailVerification::class.qualifiedName,
+        ForgotPassword::class.qualifiedName
+    )
+
     Scaffold(
+        topBar = {
+        if (!hideTopBar) {
+            // Get title based on current route
+            val screenTitle = when {
+                currentRoute == Home::class.qualifiedName -> "Feed"
+                currentRoute == Team::class.qualifiedName -> "Teams"
+                currentRoute == Profile::class.qualifiedName -> "Profile"
+                currentRoute == Settings::class.qualifiedName -> "Settings"
+                // Check if route starts with Search class name instead of exact match
+                currentRoute?.startsWith(Search::class.qualifiedName?.substringBefore("?").toString()) == true -> "Search"
+                currentRoute == PostDetail::class.qualifiedName -> "Post"
+                currentRoute == AdminPanel::class.qualifiedName -> "Admin"
+                currentRoute == CreateTeam::class.qualifiedName -> "Create Team"
+                currentRoute == CreateTournament::class.qualifiedName -> "Create Tournament"
+                currentRoute == TeamTournaments::class.qualifiedName -> "Team Tournaments"
+                currentRoute == TournamentManagement::class.qualifiedName -> "Tournament Management"
+                else -> ""
+            }
+
+            // Check current route to provide screen-specific actions
+            if (currentRoute == Home::class.qualifiedName) {
+                AppTopBar(
+                    navController = navController,
+                    title = screenTitle,
+                    actions = {
+                        if (isDesktop()) {
+                            IconButton(onClick = { /* Need to handle refresh */ }) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh"
+                                )
+                            }
+                        }
+                    }
+                )
+            } else {
+                AppTopBar(navController = navController, title = screenTitle)
+            }
+        }
+                 },
         bottomBar = {
             AppBottomNavBar(
                 currentRoute = currentRoute,
@@ -65,7 +144,14 @@ fun AppNavHost(
             )
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        // Apply a reduced top padding while keeping the other sides from innerPadding
+        val customPadding = PaddingValues(
+            top = innerPadding.calculateTopPadding() - 16.dp, // Reduce by 16.dp for minimal padding
+            bottom = innerPadding.calculateBottomPadding(),
+            start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+            end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
+        )
+        Box(modifier = Modifier.padding(customPadding)) {
             NavHost(
                 navController = navController,
                 startDestination = startDestination
@@ -136,6 +222,61 @@ fun AppNavHost(
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class)
+@Composable
+fun AppTopBar(
+    navController: NavController,
+    title: String = "",
+    modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        // First Row: Profile Icon (left), Logo (center), Actions (right)
+        CenterAlignedTopAppBar(
+            title = {
+                Image(
+                    painter = painterResource(Res.drawable.greenlogo),
+                    contentDescription = "App Logo",
+                    modifier = Modifier
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = { navController.navigate(Profile) }) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Profile"
+                    )
+                }
+            },
+            actions = actions,
+            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background
+            )
+        )
+
+        // Second Row: Title Text with minimal bottom padding
+        if (title.isNotEmpty()) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = MaterialTheme.typography.headlineLarge.fontSize
+                ),
+                modifier = Modifier.padding(
+                    start = 16.dp,
+                    top = 2.dp,
+                    bottom = 10.dp
+                )
+            )
         }
     }
 }

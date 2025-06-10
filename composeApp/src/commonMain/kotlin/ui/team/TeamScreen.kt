@@ -68,19 +68,10 @@ fun TeamScreen(
 
     CompositionLocalProvider(LocalNavController provides navController) {
         Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Team") },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                )
-            }
         ) { innerPadding ->
                     // Define a base modifier for content areas to apply padding
                     val contentModifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
 
                     if (isLoading && currentTeam == null) { // Show loading only if team isn't loaded yet
                         Box(
@@ -161,7 +152,7 @@ fun TeamHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp)
+            .padding(20.dp)  // Added horizontal padding here
     ) {
         // Left side with logo and team info
         Row(
@@ -169,7 +160,6 @@ fun TeamHeader(
         ) {
             // If logo is available, display it
             if (team.logoUrl.isNotEmpty()) {
-                // use an image loading library here like Coil
                 Surface(
                     modifier = Modifier.size(64.dp),
                     shape = CircleShape
@@ -187,21 +177,19 @@ fun TeamHeader(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
             }
 
             Column {
                 Text(
                     text = team.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(start = 8.dp) // Add left padding here
+                    style = MaterialTheme.typography.headlineSmall
                 )
                 if (team.location.isNotEmpty()) {
                     Text(
                         text = team.location,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 8.dp) // Add left padding here too
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

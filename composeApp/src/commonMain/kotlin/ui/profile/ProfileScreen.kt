@@ -28,11 +28,6 @@ fun ProfileScreen(
     val currentUser by viewModel.currentUser.collectAsState()
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("My Profile") }
-            )
-        }
     ) { paddingValues ->
         if (currentUser == null) {
             Box(

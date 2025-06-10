@@ -361,27 +361,13 @@ fun HomeScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Feed") },
-                actions = {
-                    if (isDesktop()) {
-                        IconButton(onClick = { refreshHandler.refresh() }) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh"
-                            )
-                        }
-                    }
-                }
-            )
-        },
         floatingActionButton = {
             FloatingActionButton(onClick = { showNewPostDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "New post")
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0,0,0,0)
     ) { innerPadding ->
         val localCurrentUser = currentUserSnapshot
 
