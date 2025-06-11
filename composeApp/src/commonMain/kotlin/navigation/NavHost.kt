@@ -73,6 +73,7 @@ import ui.tournament.CreateTournamentScreen
 import ui.tournament.EditTournamentScreen
 import ui.tournament.TeamTournamentScreen
 import ui.tournament.TournamentApplicationsScreen
+import ui.tournament.TournamentBracketScreen
 import ui.tournament.TournamentDetailScreen
 import ui.tournament.TournamentManagementScreen
 import utils.isDesktop
@@ -237,6 +238,23 @@ fun AppNavHost(
                         tournamentId = args.tournamentId
                     )
                 }
+
+                composable<TeamTournamentDetail> { backStackEntry ->
+                    val routeArgs = backStackEntry.toRoute<TeamTournamentDetail>()
+                    TournamentDetailScreen(
+                        navController = navController,
+                        tournamentId = routeArgs.tournamentId
+                    )
+                }
+
+                composable<TournamentBracket> { backStackEntry ->
+                    val args: TournamentBracket = backStackEntry.toRoute()
+                    TournamentBracketScreen(
+                        navController = navController,
+                        tournamentId = args.tournamentId
+                    )
+                }
+
                 composable<Search> { backStackEntry ->
                     val searchArgs: Search = backStackEntry.toRoute()
                     SearchScreen(

@@ -459,6 +459,39 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                     if (report != null) items.add(report as T)
                 }
 
+                elementType.endsWith("data.model.TournamentMatch") -> {
+                    val match = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        val key = childSnapshot.key ?: ""
+                        data.model.TournamentMatch(
+                            id = key,
+                            tournamentId = valueMap["tournamentId"] as? String ?: "",
+                            round = (valueMap["round"] as? Long)?.toInt() ?: 0,
+                            matchNumber = (valueMap["matchNumber"] as? Long)?.toInt() ?: 0,
+                            homeTeamId = valueMap["homeTeamId"] as? String ?: "",
+                            awayTeamId = valueMap["awayTeamId"] as? String ?: "",
+                            scheduledDate = valueMap["scheduledDate"] as? String ?: "",
+                            homeScore = (valueMap["homeScore"] as? Long)?.toInt(),
+                            awayScore = (valueMap["awayScore"] as? Long)?.toInt(),
+                            winnerId = valueMap["winnerId"] as? String ?: "",
+                            status = when (valueMap["status"] as? String) {
+                                "IN_PROGRESS" -> data.model.MatchStatus.IN_PROGRESS
+                                "COMPLETED" -> data.model.MatchStatus.COMPLETED
+                                "CANCELLED" -> data.model.MatchStatus.CANCELLED
+                                else -> data.model.MatchStatus.SCHEDULED
+                            },
+                            homeTeamScore = (valueMap["homeTeamScore"] as? Long)?.toInt() ?: 0,
+                            awayTeamScore = (valueMap["awayTeamScore"] as? Long)?.toInt() ?: 0,
+                            homeTeamConfirmed = valueMap["homeTeamConfirmed"] as? Boolean ?: false,
+                            awayTeamConfirmed = valueMap["awayTeamConfirmed"] as? Boolean ?: false,
+                            homeTeamReportedScore = (valueMap["homeTeamReportedScore"] as? Long)?.toInt(),
+                            awayTeamReportedScore = (valueMap["awayTeamReportedScore"] as? Long)?.toInt(),
+                            homeTeamReporterId = valueMap["homeTeamReporterId"] as? String,
+                            awayTeamReporterId = valueMap["awayTeamReporterId"] as? String
+                        )
+                    }
+                    if (match != null) items.add(match as T)
+                }
+
                 else -> {
                     Log.e("FirebaseDatabase", "Unsupported element type: $elementType")
                     continue

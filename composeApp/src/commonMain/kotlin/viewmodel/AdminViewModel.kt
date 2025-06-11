@@ -230,7 +230,7 @@ class AdminViewModel(
         }
     }
 
-    fun populateTournamentWithTeams(tournamentId: String, numberOfTeams: Int = 6) {
+    fun populateTournamentWithTeams(tournamentId: String) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
@@ -239,16 +239,25 @@ class AdminViewModel(
                 val tournament = tournamentRepository.getTournamentById(tournamentId)
                     ?: throw Exception("Tournament not found")
 
+                // Calculate how many teams we need to create to reach the maximum
+                val maxTeams = tournament.maxTeams
+                val existingTeamsCount = tournament.teamIds.size
+                val teamsToCreate = maxTeams - existingTeamsCount
+
+                if (teamsToCreate <= 0) {
+                    _successMessage.value = "Tournament is already full with $existingTeamsCount teams"
+                    return@launch
+                }
+
                 // Create dummy teams and add them to the tournament
                 val teamsToAdd = mutableListOf<String>()
 
-                for (i in 1..numberOfTeams) {
+                for (i in 1..teamsToCreate) {
                     // Create a team with minimal data
                     val team = data.model.Team(
-                        name = "Demo Team ${tournament.teamIds.size + i}",
+                        name = "Demo Team ${existingTeamsCount + i}",
                         presidentId = "admin-${Clock.System.now()}-$i", // Dummy ID
                         playerIds = List(5) { "dummyPlayer-${Clock.System.now()}-$i-$it" } // 5 dummy players
-                        // Removed joinCode parameter as it's not in the Team class
                     )
 
                     // Create the team in the database
@@ -259,7 +268,7 @@ class AdminViewModel(
                 }
 
                 if (teamsToAdd.isNotEmpty()) {
-                    // Update tournament with new teams
+                    // Update tournament with new teams while preserving existing ones
                     val updatedTeamIds = tournament.teamIds + teamsToAdd
                     val success = database.updateFields(
                         "tournaments",
@@ -268,7 +277,7 @@ class AdminViewModel(
                     )
 
                     if (success) {
-                        _successMessage.value = "Added ${teamsToAdd.size} teams to the tournament"
+                        _successMessage.value = "Added ${teamsToAdd.size} teams to the tournament (total: ${updatedTeamIds.size}/$maxTeams)"
                         loadTournaments() // Refresh the tournament list
                     } else {
                         _errorMessage.value = "Failed to update tournament with new teams"

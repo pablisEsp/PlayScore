@@ -450,6 +450,161 @@ class FirebaseTournamentRepository(
         }
     }
 
+    override suspend fun reportMatchResult(
+        matchId: String,
+        teamId: String,
+        isHomeTeam: Boolean,
+        reportedByUserId: String,
+        homeScore: Int,
+        awayScore: Int
+    ): Boolean {
+        return try {
+            // Get current match data
+            val match = database.getDocument<TournamentMatch>("tournamentMatches/$matchId")
+                ?: return false
+
+            val updatedMatch = if (isHomeTeam) {
+                // Home team is reporting
+                if (match.awayTeamConfirmed &&
+                    match.homeTeamReportedScore == homeScore &&
+                    match.awayTeamReportedScore == awayScore) {
+                    // Both teams reported matching scores, mark as completed
+                    match.copy(
+                        homeTeamConfirmed = true,
+                        homeTeamReportedScore = homeScore,
+                        awayTeamReportedScore = awayScore,
+                        homeTeamReporterId = reportedByUserId,
+                        status = MatchStatus.COMPLETED,
+                        homeScore = homeScore,
+                        awayScore = awayScore,
+                        winnerId = when {
+                            homeScore > awayScore -> match.homeTeamId
+                            awayScore > homeScore -> match.awayTeamId
+                            else -> "" // Draw
+                        }
+                    )
+                } else {
+                    // Home team report, awaiting away team confirmation or there's a mismatch
+                    match.copy(
+                        homeTeamConfirmed = true,
+                        homeTeamReportedScore = homeScore,
+                        awayTeamReportedScore = awayScore,
+                        homeTeamReporterId = reportedByUserId,
+                        status = MatchStatus.IN_PROGRESS
+                    )
+                }
+            } else {
+                // Away team is reporting
+                if (match.homeTeamConfirmed &&
+                    match.homeTeamReportedScore == homeScore &&
+                    match.awayTeamReportedScore == awayScore) {
+                    // Both teams reported matching scores, mark as completed
+                    match.copy(
+                        awayTeamConfirmed = true,
+                        homeTeamReportedScore = homeScore,
+                        awayTeamReportedScore = awayScore,
+                        awayTeamReporterId = reportedByUserId,
+                        status = MatchStatus.COMPLETED,
+                        homeScore = homeScore,
+                        awayScore = awayScore,
+                        winnerId = when {
+                            homeScore > awayScore -> match.homeTeamId
+                            awayScore > homeScore -> match.awayTeamId
+                            else -> "" // Draw
+                        }
+                    )
+                } else {
+                    // Away team report, awaiting home team confirmation or there's a mismatch
+                    match.copy(
+                        awayTeamConfirmed = true,
+                        homeTeamReportedScore = homeScore,
+                        awayTeamReportedScore = awayScore,
+                        awayTeamReporterId = reportedByUserId,
+                        status = MatchStatus.IN_PROGRESS
+                    )
+                }
+            }
+
+            val updated = database.updateDocument("tournamentMatches", matchId, updatedMatch)
+
+            // If match is completed and the update was successful, update the next round match
+            if (updated && updatedMatch.status == MatchStatus.COMPLETED) {
+                updateNextRoundMatch(updatedMatch)
+            }
+
+            updated
+        } catch (e: Exception) {
+            println("Error reporting match result: ${e.message}")
+            false
+        }
+    }
+
+    private suspend fun updateNextRoundMatch(completedMatch: TournamentMatch) {
+        try {
+            // Only relevant for elimination brackets
+            // For round robin, there's no advancement logic
+            val tournament = database.getDocument<Tournament>("tournaments/${completedMatch.tournamentId}")
+                ?: return
+
+            if (tournament.bracketType == BracketType.ROUND_ROBIN) {
+                return
+            }
+
+            // Find the next round match where this team should advance
+            val nextRound = completedMatch.round + 1
+            val matchesInNextRound = database.getCollectionFiltered<TournamentMatch>(
+                "tournamentMatches",
+                "tournamentId",
+                completedMatch.tournamentId,
+                serializer = ListSerializer(TournamentMatch.serializer())
+            ).filter { it.round == nextRound }
+
+            if (matchesInNextRound.isEmpty()) return
+
+            // Determine winner of the completed match
+            val winningTeamId = if (completedMatch.homeScore!! > completedMatch.awayScore!!) {
+                completedMatch.homeTeamId
+            } else if (completedMatch.awayScore > completedMatch.homeScore!!) {
+                completedMatch.awayTeamId
+            } else {
+                // Handle draws - for simplicity, we'll advance the home team in case of a draw
+                // In a real application, you might implement tiebreakers or other rules
+                completedMatch.homeTeamId
+            }
+
+            // For single elimination, find the next match based on match number
+            // This is a simplified approach and might need refinement for specific bracket structures
+            val currentPosition = completedMatch.matchNumber
+            val nextMatchNumber = (currentPosition + 1) / 2
+
+            val nextMatch = matchesInNextRound.find { it.matchNumber == nextMatchNumber }
+                ?: return
+
+            // Add winning team to the appropriate spot in the next match
+            val isHomeTeam = currentPosition % 2 == 1
+
+            val updatedNextMatch = if (isHomeTeam) {
+                nextMatch.copy(homeTeamId = winningTeamId)
+            } else {
+                nextMatch.copy(awayTeamId = winningTeamId)
+            }
+
+            database.updateDocument("tournamentMatches", nextMatch.id, updatedNextMatch)
+
+        } catch (e: Exception) {
+            println("Error updating next round match: ${e.message}")
+        }
+    }
+
+    override suspend fun getMatchById(matchId: String): TournamentMatch? {
+        return try {
+            database.getDocument<TournamentMatch>("tournamentMatches/$matchId")
+        } catch (e: Exception) {
+            println("Error fetching match by ID: ${e.message}")
+            null
+        }
+    }
+
     // Helper functions for tournament match generation
     private fun calculateTotalRoundsNeeded(teamCount: Int): Int {
         // For 2 teams, need 1 round; 3-4 teams, need 2 rounds; 5-8 teams, need 3 rounds, etc.

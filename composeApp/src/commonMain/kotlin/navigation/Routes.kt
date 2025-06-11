@@ -51,6 +51,9 @@ data class EditTournament(val tournamentId: String)
 data class TournamentApplications(val tournamentId: String)
 
 @Serializable
+data class TournamentBracket(val tournamentId: String)
+
+@Serializable
 data object CreateTournament
 
 @Serializable

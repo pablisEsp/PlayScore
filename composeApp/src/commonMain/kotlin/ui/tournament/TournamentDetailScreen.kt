@@ -23,6 +23,7 @@ import data.model.TeamRole
 import data.model.Tournament
 import data.model.TournamentStatus
 import kotlinx.coroutines.launch
+import navigation.TournamentBracket
 import org.koin.compose.koinInject
 import repository.TournamentRepository
 import viewmodel.TeamViewModel
@@ -129,7 +130,8 @@ fun TournamentDetailScreen(
                                 }
                             }
                         },
-                        currentTeam = currentTeamFromState
+                        currentTeam = currentTeamFromState,
+                        navController = navController,
                     )
                 }
             }
@@ -147,7 +149,8 @@ fun TournamentDetails(
     onApplyClick: () -> Unit,
     onWithdrawClick: () -> Unit,
     currentTeam: Team?,
-    modifier: Modifier = Modifier // Default modifier
+    modifier: Modifier = Modifier,
+    navController: NavController
 ) {
     Box(modifier = Modifier.fillMaxSize()) { // Outer Box to hold content and dialog
         // Single scrollable Column for all content
@@ -246,6 +249,23 @@ fun TournamentDetails(
 
             Spacer(modifier = Modifier.height(16.dp))
             // TODO: Add sections for Standings, Matches, Participants if applicable based on tournament status
+
+            // Add the bracket button for active or completed tournaments
+            if (tournament.status == TournamentStatus.ACTIVE ||
+                tournament.status == TournamentStatus.COMPLETED) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        navController.navigate(TournamentBracket(tournament.id))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("View Tournament Bracket")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
         }
 
     }

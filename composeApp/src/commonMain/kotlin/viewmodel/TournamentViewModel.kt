@@ -3,30 +3,37 @@ package viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.model.ApplicationStatus
-import data.model.BracketType
 import data.model.MatchStatus
 import data.model.Team
 import data.model.TeamApplication
+import data.model.TeamRole
 import data.model.Tournament
 import data.model.TournamentMatch
 import data.model.TournamentStatus
+import data.model.User
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.serialization.builtins.ListSerializer
-import org.koin.compose.koinInject
 import repository.TournamentRepository
+import repository.UserRepository
 
 class TournamentViewModel(
     private val auth: FirebaseAuthInterface,
-    private val database: FirebaseDatabaseInterface
+    private val database: FirebaseDatabaseInterface,
+    private val userRepository: UserRepository,
+    private val tournamentRepository: TournamentRepository,
 ) : ViewModel() {
 
     // Tournament states
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser = _currentUser.asStateFlow()
+
     val _currentTournament = MutableStateFlow<Tournament?>(null)
     val currentTournament: StateFlow<Tournament?> = _currentTournament.asStateFlow()
 
@@ -53,7 +60,34 @@ class TournamentViewModel(
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
+    private val _tournamentMatches = MutableStateFlow<List<TournamentMatch>>(emptyList())
+    val tournamentMatches: StateFlow<List<TournamentMatch>> = _tournamentMatches.asStateFlow()
+
+    private val _teamNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    val teamNames: StateFlow<Map<String, String>> = _teamNames.asStateFlow()
+
+    private val _userCanReportScore = MutableStateFlow(false)
+    val userCanReportScore: StateFlow<Boolean> = _userCanReportScore
+
     private var allTournamentsCache: List<Tournament>? = null
+
+    // Load the current user when needed
+    private fun loadCurrentUser() {
+        viewModelScope.launch {
+            try {
+                val authUser = auth.getCurrentUser()
+                if (authUser != null) {
+                    val userData = database.getUserData(authUser.uid)
+                    _currentUser.value = userData
+                } else {
+                    _currentUser.value = null
+                }
+            } catch (e: Exception) {
+                _errorMessage.update { "Failed to load user: ${e.message}" }
+                _currentUser.value = null
+            }
+        }
+    }
 
     // Get a tournament by ID
     fun getTournamentById(tournamentId: String) {
@@ -120,6 +154,95 @@ class TournamentViewModel(
                 _errorMessage.value = "Failed to load tournaments: ${e.message}"
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun reportMatchScore(matchId: String, homeScore: Int, awayScore: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid
+                if (currentUserId == null) {
+                    _errorMessage.value = "You must be logged in to report scores"
+                    return@launch
+                }
+
+                val match = tournamentRepository.getMatchById(matchId) ?: run {
+                    _errorMessage.value = "Match not found"
+                    return@launch
+                }
+
+                // Determine if current user is reporting as home or away team
+                val userTeamId = currentUser.value?.teamMembership?.teamId
+                val isHomeTeam = userTeamId == match.homeTeamId
+                val isAwayTeam = userTeamId == match.awayTeamId
+
+                if (!isHomeTeam && !isAwayTeam) {
+                    _errorMessage.value = "You are not part of either team in this match"
+                    return@launch
+                }
+
+                val success = tournamentRepository.reportMatchResult(
+                    matchId = matchId,
+                    teamId = userTeamId ?: "",
+                    isHomeTeam = isHomeTeam,
+                    reportedByUserId = currentUserId,
+                    homeScore = homeScore,
+                    awayScore = awayScore
+                )
+
+                if (success) {
+                    _successMessage.value = "Score reported successfully"
+                    // Refresh match data
+                    _currentTournament.value?.id?.let { tournamentId ->
+                        loadTournamentMatches(tournamentId)
+                    }
+                } else {
+                    _errorMessage.value = "Failed to report score"
+                }
+
+            } catch (e: Exception) {
+                _errorMessage.value = "Error reporting score: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun checkUserCanReportScore(tournamentId: String) {
+        viewModelScope.launch {
+            try {
+                // Get current user
+                val currentUserId = auth.getCurrentUser()?.uid
+                if (currentUserId == null) {
+                    _userCanReportScore.value = false
+                    return@launch
+                }
+
+                // Get user data
+                val user = database.getUserData(currentUserId)
+                if (user == null) {
+                    _userCanReportScore.value = false
+                    return@launch
+                }
+
+                // Check if user is in a team
+                val userTeamId = user.teamMembership?.teamId
+                if (userTeamId == null) {
+                    _userCanReportScore.value = false
+                    return@launch
+                }
+
+                // Check if user has appropriate role
+                val userRole = user.teamMembership.role
+                if (userRole == TeamRole.PRESIDENT || userRole == TeamRole.VICE_PRESIDENT || userRole == TeamRole.CAPTAIN) {
+                    _userCanReportScore.value = true
+                } else {
+                    _userCanReportScore.value = false
+                }
+            } catch (e: Exception) {
+                _userCanReportScore.value = false
             }
         }
     }
@@ -318,19 +441,48 @@ class TournamentViewModel(
         return start1 <= end2 && start2 <= end1
     }
 
-    // Get tournament standings - for active or completed tournaments
-    fun loadTournamentStandings(tournamentId: String) {
+    // Load tournament matches
+    fun loadTournamentMatches(tournamentId: String) {
         viewModelScope.launch {
-        // Placeholder
+            _isLoading.value = true
+            try {
+                val matches = database.getCollectionFiltered<TournamentMatch>(
+                    "tournamentMatches",
+                    "tournamentId",
+                    tournamentId,
+                    serializer = kotlinx.serialization.builtins.ListSerializer(TournamentMatch.serializer())
+                )
+                _tournamentMatches.value = matches
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load tournament matches: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
-}
 
-    // Get tournament schedule/matches - for active tournaments
-    fun loadTournamentSchedule(tournamentId: String) {
+    // Load team names for display
+    fun loadTeamNames(tournamentId: String) {
         viewModelScope.launch {
-        // Placeholder
+            try {
+                val tournament = _currentTournament.value ?: return@launch
+                val teamIds = tournament.teamIds
+
+                val teamNamesMap = mutableMapOf<String, String>()
+
+                for (teamId in teamIds) {
+                    val team = database.getDocument<Team>("teams/$teamId")
+                    team?.let {
+                        teamNamesMap[teamId] = it.name
+                    }
+                }
+
+                _teamNames.value = teamNamesMap
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load team names: ${e.message}"
+            }
+        }
     }
-}
 
     fun clearSuccessMessage() {
         _successMessage.value = null

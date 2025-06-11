@@ -18,4 +18,13 @@ interface TournamentRepository {
     suspend fun applyTeamToTournament(application: TeamApplication): String
     suspend fun updateApplicationStatus(applicationId: String, status: ApplicationStatus): Boolean
     suspend fun generateMatchesForTournament(tournamentId: String): Boolean
+    suspend fun getMatchById(matchId: String): TournamentMatch?
+    suspend fun reportMatchResult(
+        matchId: String,
+        teamId: String,
+        isHomeTeam: Boolean,
+        reportedByUserId: String,
+        homeScore: Int,
+        awayScore: Int
+    ): Boolean
 }

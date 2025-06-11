@@ -44,7 +44,17 @@ data class TournamentMatch(
     val homeScore: Int? = null,
     val awayScore: Int? = null,
     val winnerId: String = "",
-    val status: MatchStatus = MatchStatus.SCHEDULED
+    val status: MatchStatus = MatchStatus.SCHEDULED,
+    val homeTeamScore: Int = homeScore ?: 0,
+    val awayTeamScore: Int = awayScore ?: 0,
+
+    val homeTeamConfirmed: Boolean = false,
+    val awayTeamConfirmed: Boolean = false,
+    val homeTeamReportedScore: Int? = null,
+    val awayTeamReportedScore: Int? = null,
+    val homeTeamReporterId: String? = null,
+    val awayTeamReporterId: String? = null
+
 )
 
 @Serializable
