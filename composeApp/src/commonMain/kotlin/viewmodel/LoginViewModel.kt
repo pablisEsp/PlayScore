@@ -74,6 +74,14 @@ class LoginViewModel(
                 }
 
                 if (userData != null) {
+                    // Check if user is banned
+                    if (userData.isBanned == true) {
+                        _loginMessage.value = "Your account has been banned. Please contact support."
+                        auth.signOut() // Sign out the user immediately
+                        _isLoading.value = false
+                        return@launch
+                    }
+
                     withContext(Dispatchers.IO) {
                         val token = auth.getIdToken() ?: ""
                         tokenManager.saveAuthData(token, userData)

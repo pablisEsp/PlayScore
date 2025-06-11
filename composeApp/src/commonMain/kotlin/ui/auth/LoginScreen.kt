@@ -44,6 +44,16 @@ fun LoginScreen(
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val isEmailVerificationRequired by viewModel.isEmailVerificationRequired.collectAsState()
 
+    // State for showing banned dialog
+    var showBannedDialog by remember { mutableStateOf(false) }
+
+    // Check if login message indicates banned status
+    LaunchedEffect(loginMessage) {
+        if (loginMessage?.contains("banned") == true) {
+            showBannedDialog = true
+        }
+    }
+
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             navController.navigate("navigation.Home") {
@@ -192,5 +202,22 @@ fun LoginScreen(
                 }
             }
         }
+    }
+
+    // Banned user dialog
+    if (showBannedDialog) {
+        AlertDialog(
+            onDismissRequest = { showBannedDialog = false },
+            title = { Text("Account Suspended") },
+            text = {
+                Text("Your account has been banned due to violation of our terms of service. " +
+                        "If you believe this is an error, please contact support.")
+            },
+            confirmButton = {
+                Button(onClick = { showBannedDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }

@@ -87,6 +87,8 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         TeamMembership(teamId = teamId, role = role)
                     } else null
 
+                    val isBanned = snapshot.child("isBanned").getValue(Boolean::class.java) ?: false
+
                     // Create user object with the extracted teamMembership
                     val user = User(
                         id = id,
@@ -96,6 +98,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         globalRole = globalRole,
                         teamMembership = teamMembership,  // Include the teamMembership
                         profileImage = profileImage,
+                        isBanned = isBanned,
                         createdAt = createdAt
                     )
 
@@ -310,7 +313,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                                 "SUPER_ADMIN" -> UserRole.SUPER_ADMIN
                                 else -> UserRole.USER
                             },
-                            teamMembership = null, // Add logic to extract team membership if needed
+                            teamMembership = null,
                             profileImage = valueMap["profileImage"] as? String ?: "",
                             isBanned = valueMap["isBanned"] as? Boolean ?: false,
                             createdAt = valueMap["createdAt"] as? String ?: ""
