@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -27,9 +29,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -75,11 +80,23 @@ import viewmodel.UserViewModel
 
 @Composable
 fun AppNavHost(
-    firebaseAuth: FirebaseAuthInterface = koinInject()
+    firebaseAuth: FirebaseAuthInterface = koinInject(),
+    userViewModel: UserViewModel = koinInject()
 ) {
     val navController = rememberNavController()
     val startDestination = remember {
         if (firebaseAuth.getCurrentUser() != null) Home else Login
+    }
+
+    val isBanned by userViewModel.isBanned.collectAsState()
+    var showBannedDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isBanned) {
+        println("Ban status changed: $isBanned")
+        if (isBanned) {
+            println("Showing ban dialog")
+            showBannedDialog = true
+        }
     }
 
     val backStack by navController.currentBackStackEntryAsState()
@@ -232,6 +249,31 @@ fun AppNavHost(
                 }
             }
         }
+    }
+    if (showBannedDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                // Don't allow dismiss without action
+            },
+            title = { Text("Account Suspended") },
+            text = {
+                Text("Your account has been banned due to violation of our terms of service. " +
+                        "If you believe this is an error, please contact support.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    println("Ban dialog confirmed, logging out")
+                    showBannedDialog = false
+                    userViewModel.signOutBannedUser() // Call the new function here
+                    userViewModel.clearBanStatus()
+                    navController.navigate("navigation.Login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 

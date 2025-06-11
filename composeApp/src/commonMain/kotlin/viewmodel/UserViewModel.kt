@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import data.model.User
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class UserViewModel(
@@ -23,8 +26,16 @@ class UserViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _isBanned = MutableStateFlow(false)
+    val isBanned: StateFlow<Boolean> = _isBanned.asStateFlow()
+
+    private var banCheckJob: Job? = null
+
+
     init {
         loadCurrentUser()
+        // Start periodic ban check
+        startBanCheck()
     }
 
     fun loadCurrentUser() {
@@ -64,6 +75,65 @@ class UserViewModel(
                 _isLoading.value = false
             }
         }
+    }
+
+    private fun startBanCheck() {
+        banCheckJob = viewModelScope.launch {
+            while(isActive) {
+                checkUserBanStatus()
+                // Check every minute
+                delay(60000)
+            }
+        }
+    }
+
+    // In UserViewModel.kt - modify checkUserBanStatus() function
+    private suspend fun checkUserBanStatus() {
+        try {
+            val uid = auth.getCurrentUser()?.uid
+            if (uid != null) {
+                // Add debugging
+                println("Checking ban status for user: $uid")
+
+                // Fetch fresh user data directly from database
+                val freshUserData = database.getUserData(uid)
+                println("User ban status: ${freshUserData?.isBanned}")
+
+                if (freshUserData?.isBanned == true) {
+                    println("User is banned, showing dialog")
+                    // Important: Set isBanned FIRST, then wait for user to dismiss dialog before logout
+                    _isBanned.value = true
+
+                    // Don't sign out here - we'll do it after the user dismisses the dialog
+                    // This way the user sees the dialog and we avoid permission errors
+                }
+            }
+        } catch (e: Exception) {
+            println("Error checking ban status: ${e.message}")
+            _errorMessage.value = "Error checking user status: ${e.message}"
+        }
+    }
+
+    // Add this new function to handle signout after dialog is dismissed
+    fun signOutBannedUser() {
+        viewModelScope.launch {
+            try {
+                println("Signing out banned user")
+                auth.signOut()
+                _currentUser.value = null
+            } catch (e: Exception) {
+                println("Error during signout: ${e.message}")
+            }
+        }
+    }
+
+    fun clearBanStatus() {
+        _isBanned.value = false
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        banCheckJob?.cancel()
     }
 
     fun clearError() {
