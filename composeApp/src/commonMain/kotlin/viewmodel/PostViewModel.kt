@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.model.Post
 import data.model.Report
+import data.model.ReportStatus
 import data.model.User
 import data.model.UserRole
 import firebase.auth.FirebaseAuthInterface
@@ -290,15 +291,71 @@ class PostViewModel(
         }
     }
 
-    fun getReportedPosts() {
+    fun getReportedPosts(showOnlyPending: Boolean = true) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 postRepository.getReportedPosts().collect { reportedPostsList ->
-                    _reportedPosts.value = reportedPostsList
+                    // Filter for only pending reports if required
+                    val filteredReports = if (showOnlyPending) {
+                        reportedPostsList.filter { (_, report) -> report.status == ReportStatus.PENDING }
+                    } else {
+                        reportedPostsList // Show all reports regardless of status
+                    }
+
+                    println("Reports fetched: ${reportedPostsList.size}, filtered: ${filteredReports.size}")
+
+                    // Sort with pending reports first
+                    val sortedReports = filteredReports.sortedWith(compareBy { (_, report) ->
+                        when (report.status) {
+                            ReportStatus.PENDING -> 0
+                            ReportStatus.ACCEPTED -> 1
+                            ReportStatus.REVIEWED -> 2
+                            ReportStatus.IGNORED -> 3
+                        }
+                    })
+
+                    _reportedPosts.value = sortedReports
                 }
             } catch (e: Exception) {
                 println("Error loading reported posts: ${e.message}")
+                _reportedPosts.value = emptyList()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteReportedPost(postId: String, reportId: String, showOnlyPending: Boolean = true) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // First update the report status
+                postRepository.updateReportStatus(reportId, ReportStatus.ACCEPTED)
+
+                // Then delete the post
+                val result = postRepository.deletePost(postId)
+                if (result.isSuccess) {
+                    // Refresh the reported posts list with current filter setting
+                    getReportedPosts(showOnlyPending)
+                }
+            } catch (e: Exception) {
+                println("Error deleting reported post: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun ignoreReport(reportId: String, showOnlyPending: Boolean = true) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                postRepository.updateReportStatus(reportId, ReportStatus.IGNORED)
+                // Refresh the reported posts list with current filter setting
+                getReportedPosts(showOnlyPending)
+            } catch (e: Exception) {
+                println("Error ignoring report: ${e.message}")
             } finally {
                 _isLoading.value = false
             }

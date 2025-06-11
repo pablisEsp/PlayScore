@@ -11,6 +11,8 @@ import data.model.BracketType
 import data.model.CreatorType
 import data.model.Like
 import data.model.Post
+import data.model.Report
+import data.model.ReportStatus
 import data.model.RequestStatus
 import data.model.Team
 import data.model.TeamApplication
@@ -435,6 +437,26 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         )
                     }
                     if (application != null) items.add(application as T)
+                }
+
+                elementType.endsWith("data.model.Report") -> {
+                    val report = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        val reportId = childSnapshot.key ?: ""
+                        Report(
+                            id = reportId,
+                            postId = valueMap["postId"] as? String ?: "",
+                            reporterId = valueMap["reporterId"] as? String ?: "",
+                            reason = valueMap["reason"] as? String ?: "",
+                            timestamp = valueMap["timestamp"] as? String ?: "",
+                            status = when (valueMap["status"] as? String) {
+                                "REVIEWED" -> ReportStatus.REVIEWED
+                                "IGNORED" -> ReportStatus.IGNORED
+                                "ACCEPTED" -> ReportStatus.ACCEPTED
+                                else -> ReportStatus.PENDING
+                            }
+                        )
+                    }
+                    if (report != null) items.add(report as T)
                 }
 
                 else -> {

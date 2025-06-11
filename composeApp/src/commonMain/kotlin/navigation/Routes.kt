@@ -58,3 +58,6 @@ data object AdminPanel
 
 @Serializable
 data object UserManagement
+
+@Serializable
+data object ReportedPosts

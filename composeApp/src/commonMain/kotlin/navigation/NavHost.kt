@@ -55,6 +55,7 @@ import org.koin.compose.koinInject
 import playscore.composeapp.generated.resources.Res
 import playscore.composeapp.generated.resources.greenlogo
 import ui.admin.AdminPanelScreen
+import ui.admin.ReportedPostsScreen
 import ui.admin.UserManagementScreen
 import ui.auth.EmailVerificationScreen
 import ui.auth.ForgotPasswordScreen
@@ -195,6 +196,9 @@ fun AppNavHost(
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
                 composable<AdminPanel> { AdminPanelScreen(navController) }
+                composable<ReportedPosts> {
+                    ReportedPostsScreen(navController)
+                }
                 composable<UserManagement> {
                     UserManagementScreen()
                 }

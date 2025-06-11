@@ -2,6 +2,7 @@ package repository
 
 import data.model.Post
 import data.model.Report
+import data.model.ReportStatus
 import firebase.database.FirebaseDatabaseInterface
 import firebase.database.createFirebaseDatabase
 import kotlinx.coroutines.flow.Flow
@@ -148,6 +149,18 @@ class FirebasePostRepository(
         } catch (e: Exception) {
             println("Error fetching post by ID '$postId': ${e.message}")
             emit(null)
+        }
+    }
+
+    override suspend fun updateReportStatus(reportId: String, status: ReportStatus): Boolean {
+        return try {
+            val reportPath = "reports"
+            val updates = mapOf("status" to status.name)
+            database.updateFields(reportPath, reportId, updates)
+            true
+        } catch (e: Exception) {
+            println("Error updating report status: ${e.message}")
+            false
         }
     }
 

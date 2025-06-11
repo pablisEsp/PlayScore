@@ -100,6 +100,27 @@ fun AdminPanelScreen(
                         }
                     }
                 }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Post Management",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { navController.navigate("navigation.ReportedPosts") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Review Reported Posts")
+                        }
+                    }
+                }
             }
         }
     }

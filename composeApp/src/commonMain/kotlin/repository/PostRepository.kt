@@ -2,6 +2,7 @@ package repository
 
 import data.model.Post
 import data.model.Report
+import data.model.ReportStatus
 import kotlinx.coroutines.flow.Flow
 
 interface PostRepository {
@@ -17,4 +18,5 @@ interface PostRepository {
     suspend fun likePost(postId: String)
     suspend fun getCommentsForPost(postId: String): Flow<List<Post>>
     suspend fun hasReplies(postId: String): Boolean
+    suspend fun updateReportStatus(reportId: String, status: ReportStatus): Boolean
 }
