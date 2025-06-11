@@ -55,16 +55,6 @@ fun PostDetailScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Post") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                }
-            )
-        },
         snackbarHost = { SnackbarHost(
             snackbarHostState,
             modifier = Modifier.padding(bottom = 72.dp),
@@ -77,11 +67,10 @@ fun PostDetailScreen(
                 )
             }
         ) }
-    ) { innerPadding ->
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
         ) {
             val refreshHandler = rememberRefreshHandler(
                 isRefreshing = isLoading,

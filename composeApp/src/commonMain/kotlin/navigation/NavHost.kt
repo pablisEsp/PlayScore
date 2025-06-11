@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -39,6 +42,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import data.model.UserRole
 import firebase.auth.FirebaseAuthInterface
 import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.painterResource
@@ -66,6 +70,7 @@ import ui.tournament.TournamentDetailScreen
 import ui.tournament.TournamentManagementScreen
 import utils.isDesktop
 import viewmodel.TeamViewModel
+import viewmodel.UserViewModel
 
 @Composable
 fun AppNavHost(
@@ -234,11 +239,28 @@ fun AppTopBar(
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
+    val userViewModel: UserViewModel = koinInject()
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val backStack by navController.currentBackStackEntryAsState()
+    val currentRoute = backStack?.destination?.route
+
+    // Define which routes are main screens (they show profile icon)
+    val mainScreens = listOf(
+        Home::class.qualifiedName,
+        Team::class.qualifiedName,
+        Profile::class.qualifiedName,
+        Search::class.qualifiedName?.substringBefore("?") // Base Search route without params
+    )
+
+    val isMainScreen = mainScreens.contains(currentRoute?.substringBefore("?"))
+    val isAdmin = currentUser?.globalRole == UserRole.ADMIN ||
+                  currentUser?.globalRole == UserRole.SUPER_ADMIN
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
-        // First Row: Profile Icon (left), Logo (center), Actions (right)
+        // First Row: Profile/Back Icon (left), Logo (center), Actions (right)
         CenterAlignedTopAppBar(
             title = {
                 Image(
@@ -250,14 +272,37 @@ fun AppTopBar(
                 )
             },
             navigationIcon = {
-                IconButton(onClick = { navController.navigate(Profile) }) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile"
-                    )
+                if (isMainScreen) {
+                    // Show profile icon on main screens
+                    IconButton(onClick = { navController.navigate(Profile) }) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profile"
+                        )
+                    }
+                } else {
+                    // Show back arrow on non-main screens
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
                 }
             },
-            actions = actions,
+            actions = {
+                // Add admin icon if the user is an admin
+                if (isAdmin) {
+                    IconButton(onClick = { navController.navigate(AdminPanel) }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Admin Panel"
+                        )
+                    }
+                }
+                // Include any other actions passed to this composable
+                actions()
+            },
             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                 containerColor = MaterialTheme.colorScheme.background
             )
@@ -268,8 +313,7 @@ fun AppTopBar(
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = MaterialTheme.typography.headlineLarge.fontSize
+                    fontWeight = FontWeight.ExtraBold
                 ),
                 modifier = Modifier.padding(
                     start = 16.dp,

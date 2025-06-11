@@ -62,25 +62,6 @@ fun SettingsScreen(navController: NavController) {
                 trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
                 modifier = Modifier.clickable { /* Navigate to notifications settings */ }
             )
-
-            // Admin section
-            AdminSection(navController, isAdmin)
         }
-    }
-}
-
-@Composable
-fun AdminSection(
-    navController: NavController,
-    isAdmin: Boolean
-) {
-    if (isAdmin) {
-        HorizontalDivider()
-        ListItem(
-            headlineContent = { Text("Admin Panel") },
-            leadingContent = { Icon(Icons.Default.Settings, contentDescription = null) },
-            trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
-            modifier = Modifier.clickable { navController.navigate("navigation.AdminPanel") }
-        )
     }
 }
