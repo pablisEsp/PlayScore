@@ -17,4 +17,5 @@ interface TournamentRepository {
     suspend fun getTeamApplications(tournamentId: String): List<TeamApplication>
     suspend fun applyTeamToTournament(application: TeamApplication): String
     suspend fun updateApplicationStatus(applicationId: String, status: ApplicationStatus): Boolean
+    suspend fun generateMatchesForTournament(tournamentId: String): Boolean
 }

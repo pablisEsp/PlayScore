@@ -1,57 +1,28 @@
 package ui.tournament
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.Tournament
+import data.model.TournamentStatus
 import navigation.EditTournament
 import navigation.TournamentApplications
 import org.koin.compose.koinInject
+import repository.TournamentRepository
 import viewmodel.AdminViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TournamentManagementScreen(
     navController: NavController,
@@ -60,8 +31,12 @@ fun TournamentManagementScreen(
     val tournaments by adminViewModel.tournaments.collectAsState()
     val isLoading by adminViewModel.isLoading.collectAsState()
     val errorMessage by adminViewModel.errorMessage.collectAsState()
+    val successMessage by adminViewModel.successMessage.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Get the repository inside the composable
+    val tournamentRepository: TournamentRepository = koinInject()
 
     LaunchedEffect(Unit) {
         adminViewModel.loadTournaments()
@@ -74,9 +49,16 @@ fun TournamentManagementScreen(
         }
     }
 
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            adminViewModel.clearSuccessMessage()
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) {
+    ) { paddingValues ->
         if (isLoading && tournaments.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -87,7 +69,8 @@ fun TournamentManagementScreen(
         } else {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .padding(paddingValues),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -112,6 +95,12 @@ fun TournamentManagementScreen(
                             },
                             onManageApplications = {
                                 navController.navigate(TournamentApplications(tournament.id))
+                            },
+                            onGenerateMatches = {
+                                adminViewModel.generateMatchesForTournament(tournament.id)
+                            },
+                            onPopulateTeams = {
+                                adminViewModel.populateTournamentWithTeams(tournament.id)
                             }
                         )
                     }
@@ -126,9 +115,13 @@ private fun TournamentCard(
     tournament: Tournament,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onManageApplications: () -> Unit
+    onManageApplications: () -> Unit,
+    onGenerateMatches: () -> Unit,
+    onPopulateTeams: () -> Unit
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showGenerateMatchesConfirmation by remember { mutableStateOf(false) }
+    var showPopulateTeamsConfirmation by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -153,10 +146,7 @@ private fun TournamentCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start
             ) {
-                Text(
-                    text = "Status: ${tournament.status.name.replace('_', ' ')}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                StatusChip(status = tournament.status)
             }
 
             Row(
@@ -175,11 +165,39 @@ private fun TournamentCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            Text(
+                text = "Teams: ${tournament.teamIds.size}/${tournament.maxTeams}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Only show this for tournaments in REGISTRATION status
+                if (tournament.status == TournamentStatus.REGISTRATION) {
+                    IconButton(onClick = { showPopulateTeamsConfirmation = true }) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = "Add Demo Teams",
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+
+                // Add Generate Matches button for tournaments in REGISTRATION status with at least 2 teams
+                if (tournament.status == TournamentStatus.REGISTRATION && tournament.teamIds.size >= 2) {
+                    IconButton(onClick = { showGenerateMatchesConfirmation = true }) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Generate Matches",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
                 IconButton(onClick = onManageApplications) {
                     Icon(
                         Icons.Default.Person,
@@ -205,6 +223,7 @@ private fun TournamentCard(
         }
     }
 
+    // Delete confirmation dialog
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
@@ -225,6 +244,72 @@ private fun TournamentCard(
             },
             dismissButton = {
                 OutlinedButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Generate matches confirmation dialog
+    if (showGenerateMatchesConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showGenerateMatchesConfirmation = false },
+            title = { Text("Generate Tournament Matches") },
+            text = {
+                Column {
+                    Text("Are you sure you want to generate matches for this tournament?")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("This will set the tournament status to ACTIVE and create all tournament matches.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("This action cannot be undone.", style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onGenerateMatches()
+                        showGenerateMatchesConfirmation = false
+                    }
+                ) {
+                    Text("Generate Matches")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showGenerateMatchesConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Populate teams confirmation dialog
+    if (showPopulateTeamsConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPopulateTeamsConfirmation = false },
+            title = { Text("Add Demo Teams") },
+            text = {
+                Column {
+                    Text("This will add 6 demo teams to the tournament for testing purposes.")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Current team count: ${tournament.teamIds.size}/${tournament.maxTeams}")
+                    if ((tournament.teamIds.size + 6) > tournament.maxTeams) {
+                        Text("Warning: This will exceed the maximum team limit!",
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onPopulateTeams()
+                        showPopulateTeamsConfirmation = false
+                    }
+                ) {
+                    Text("Add Demo Teams")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showPopulateTeamsConfirmation = false }) {
                     Text("Cancel")
                 }
             }

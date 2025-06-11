@@ -552,6 +552,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         val statusStr = snapshot.child("status").getValue(String::class.java) ?: "UPCOMING"
                         val maxTeams = snapshot.child("maxTeams").getValue(Int::class.java) ?: 8
                         val bracketTypeStr = snapshot.child("bracketType").getValue(String::class.java) ?: "SINGLE_ELIMINATION"
+                        val teamIds = snapshot.child("teamIds").getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
 
                         val tournament = Tournament(
                             id = id,
@@ -562,6 +563,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             startDate = startDate,
                             endDate = endDate,
                             status = TournamentStatus.valueOf(statusStr),
+                            teamIds = teamIds,
                             maxTeams = maxTeams,
                             bracketType = BracketType.valueOf(bracketTypeStr)
                         ) as T

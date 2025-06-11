@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 import repository.TournamentRepository
 
 
@@ -193,6 +194,90 @@ class AdminViewModel(
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+
+    private val _successMessage = MutableStateFlow<String?>(null)
+    val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
+
+    fun clearSuccessMessage() {
+        _successMessage.value = null
+    }
+
+    fun generateMatchesForTournament(tournamentId: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+
+                val success = tournamentRepository.generateMatchesForTournament(tournamentId)
+
+                if (success) {
+                    _successMessage.value = "Tournament matches generated successfully"
+                    // Refresh the tournament list to update statuses
+                    loadTournaments()
+                } else {
+                    _errorMessage.value = "Failed to generate tournament matches"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error generating matches: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun populateTournamentWithTeams(tournamentId: String, numberOfTeams: Int = 6) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+
+                // First get the tournament
+                val tournament = tournamentRepository.getTournamentById(tournamentId)
+                    ?: throw Exception("Tournament not found")
+
+                // Create dummy teams and add them to the tournament
+                val teamsToAdd = mutableListOf<String>()
+
+                for (i in 1..numberOfTeams) {
+                    // Create a team with minimal data
+                    val team = data.model.Team(
+                        name = "Demo Team ${tournament.teamIds.size + i}",
+                        presidentId = "admin-${Clock.System.now()}-$i", // Dummy ID
+                        playerIds = List(5) { "dummyPlayer-${Clock.System.now()}-$i-$it" } // 5 dummy players
+                        // Removed joinCode parameter as it's not in the Team class
+                    )
+
+                    // Create the team in the database
+                    val teamId = database.createDocument("teams", team)
+                    if (teamId.isNotEmpty()) {
+                        teamsToAdd.add(teamId)
+                    }
+                }
+
+                if (teamsToAdd.isNotEmpty()) {
+                    // Update tournament with new teams
+                    val updatedTeamIds = tournament.teamIds + teamsToAdd
+                    val success = database.updateFields(
+                        "tournaments",
+                        tournamentId,
+                        mapOf("teamIds" to updatedTeamIds)
+                    )
+
+                    if (success) {
+                        _successMessage.value = "Added ${teamsToAdd.size} teams to the tournament"
+                        loadTournaments() // Refresh the tournament list
+                    } else {
+                        _errorMessage.value = "Failed to update tournament with new teams"
+                    }
+                } else {
+                    _errorMessage.value = "Failed to create any teams"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to populate teams: ${e.message}"
             } finally {
                 _isLoading.value = false
             }

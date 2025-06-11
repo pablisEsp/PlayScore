@@ -3,9 +3,12 @@ package viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.model.ApplicationStatus
+import data.model.BracketType
+import data.model.MatchStatus
 import data.model.Team
 import data.model.TeamApplication
 import data.model.Tournament
+import data.model.TournamentMatch
 import data.model.TournamentStatus
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
@@ -15,6 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.serialization.builtins.ListSerializer
+import org.koin.compose.koinInject
+import repository.TournamentRepository
 
 class TournamentViewModel(
     private val auth: FirebaseAuthInterface,
