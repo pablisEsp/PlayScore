@@ -10,6 +10,7 @@ import data.model.ApplicationStatus
 import data.model.BracketType
 import data.model.CreatorType
 import data.model.Like
+import data.model.MatchStatus
 import data.model.Post
 import data.model.Report
 import data.model.ReportStatus
@@ -20,6 +21,7 @@ import data.model.TeamJoinRequest
 import data.model.TeamMembership
 import data.model.TeamRole
 import data.model.Tournament
+import data.model.TournamentMatch
 import data.model.TournamentStatus
 import data.model.User
 import data.model.UserRole
@@ -473,12 +475,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             homeScore = (valueMap["homeScore"] as? Long)?.toInt(),
                             awayScore = (valueMap["awayScore"] as? Long)?.toInt(),
                             winnerId = valueMap["winnerId"] as? String ?: "",
-                            status = when (valueMap["status"] as? String) {
-                                "IN_PROGRESS" -> data.model.MatchStatus.IN_PROGRESS
-                                "COMPLETED" -> data.model.MatchStatus.COMPLETED
-                                "CANCELLED" -> data.model.MatchStatus.CANCELLED
-                                else -> data.model.MatchStatus.SCHEDULED
-                            },
+                            status = parseMatchStatus(valueMap["status"] as? String),
                             homeTeamScore = (valueMap["homeTeamScore"] as? Long)?.toInt() ?: 0,
                             awayTeamScore = (valueMap["awayTeamScore"] as? Long)?.toInt() ?: 0,
                             homeTeamConfirmed = valueMap["homeTeamConfirmed"] as? Boolean ?: false,
@@ -500,6 +497,16 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
         }
 
         return items
+    }
+
+    private fun parseMatchStatus(statusStr: String?): data.model.MatchStatus {
+        return when (statusStr) {
+            "SCHEDULED" -> data.model.MatchStatus.SCHEDULED
+            "IN_PROGRESS" -> data.model.MatchStatus.IN_PROGRESS
+            "COMPLETED" -> data.model.MatchStatus.COMPLETED
+            "CANCELLED" -> data.model.MatchStatus.CANCELLED
+            else -> data.model.MatchStatus.SCHEDULED
+        }
     }
 
 
@@ -530,6 +537,66 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             createdAt = createdAt
                         ) as T
                         continuation.resume(post)
+                    }else if (path.startsWith("tournamentMatches/")) {
+                        // Special handling for tournament matches
+                        val id = snapshot.key ?: path.split("/").last()
+                        val tournamentId =
+                            snapshot.child("tournamentId").getValue(String::class.java) ?: ""
+                        val round = snapshot.child("round").getValue(Int::class.java) ?: 0
+                        val matchNumber =
+                            snapshot.child("matchNumber").getValue(Int::class.java) ?: 0
+                        val homeTeamId =
+                            snapshot.child("homeTeamId").getValue(String::class.java) ?: ""
+                        val awayTeamId =
+                            snapshot.child("awayTeamId").getValue(String::class.java) ?: ""
+                        val scheduledDate =
+                            snapshot.child("scheduledDate").getValue(String::class.java) ?: ""
+                        val homeScore = snapshot.child("homeScore").getValue(Int::class.java)
+                        val awayScore = snapshot.child("awayScore").getValue(Int::class.java)
+                        val winnerId = snapshot.child("winnerId").getValue(String::class.java) ?: ""
+                        val statusStr =
+                            snapshot.child("status").getValue(String::class.java) ?: "SCHEDULED"
+                        val homeTeamScore =
+                            snapshot.child("homeTeamScore").getValue(Int::class.java) ?: 0
+                        val awayTeamScore =
+                            snapshot.child("awayTeamScore").getValue(Int::class.java) ?: 0
+                        val homeTeamConfirmed =
+                            snapshot.child("homeTeamConfirmed").getValue(Boolean::class.java)
+                                ?: false
+                        val awayTeamConfirmed =
+                            snapshot.child("awayTeamConfirmed").getValue(Boolean::class.java)
+                                ?: false
+                        val homeTeamReportedScore =
+                            snapshot.child("homeTeamReportedScore").getValue(Int::class.java)
+                        val awayTeamReportedScore =
+                            snapshot.child("awayTeamReportedScore").getValue(Int::class.java)
+                        val homeTeamReporterId =
+                            snapshot.child("homeTeamReporterId").getValue(String::class.java)
+                        val awayTeamReporterId =
+                            snapshot.child("awayTeamReporterId").getValue(String::class.java)
+
+                        val match = TournamentMatch(
+                            id = id,
+                            tournamentId = tournamentId,
+                            round = round,
+                            matchNumber = matchNumber,
+                            homeTeamId = homeTeamId,
+                            awayTeamId = awayTeamId,
+                            scheduledDate = scheduledDate,
+                            homeScore = homeScore,
+                            awayScore = awayScore,
+                            winnerId = winnerId,
+                            status = MatchStatus.valueOf(statusStr),
+                            homeTeamScore = homeTeamScore,
+                            awayTeamScore = awayTeamScore,
+                            homeTeamConfirmed = homeTeamConfirmed,
+                            awayTeamConfirmed = awayTeamConfirmed,
+                            homeTeamReportedScore = homeTeamReportedScore,
+                            awayTeamReportedScore = awayTeamReportedScore,
+                            homeTeamReporterId = homeTeamReporterId,
+                            awayTeamReporterId = awayTeamReporterId
+                        ) as T
+                        continuation.resume(match)
                     }else if (path.startsWith("teams/")) {
                         // Special handling for teams
                         val id = snapshot.key ?: path.split("/").last()

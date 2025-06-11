@@ -596,11 +596,15 @@ class FirebaseTournamentRepository(
         }
     }
 
+    /**
+     * Retrieves a tournament match by its ID
+     */
     override suspend fun getMatchById(matchId: String): TournamentMatch? {
         return try {
+            // Use explicit path to get the match document to avoid type confusion
             database.getDocument<TournamentMatch>("tournamentMatches/$matchId")
         } catch (e: Exception) {
-            println("Error fetching match by ID: ${e.message}")
+            e.printStackTrace()
             null
         }
     }

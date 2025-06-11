@@ -58,6 +58,10 @@ fun TournamentBracketScreen(
     // For displaying success/error messages
     val snackbarHostState = remember { SnackbarHostState() }
 
+    LaunchedEffect(Unit) {
+        tournamentViewModel.getCurrentUserData()
+    }
+
     LaunchedEffect(tournamentId) {
         tournamentViewModel.getTournamentById(tournamentId)
         tournamentViewModel.loadTournamentMatches(tournamentId)
@@ -74,11 +78,10 @@ fun TournamentBracketScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
         ) {
             if (isLoading && tournament == null) {
                 CircularProgressIndicator(

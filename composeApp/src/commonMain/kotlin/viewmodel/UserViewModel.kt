@@ -87,17 +87,12 @@ class UserViewModel(
         }
     }
 
-    // In UserViewModel.kt - modify checkUserBanStatus() function
     private suspend fun checkUserBanStatus() {
         try {
             val uid = auth.getCurrentUser()?.uid
             if (uid != null) {
-                // Add debugging
-                println("Checking ban status for user: $uid")
-
                 // Fetch fresh user data directly from database
                 val freshUserData = database.getUserData(uid)
-                println("User ban status: ${freshUserData?.isBanned}")
 
                 if (freshUserData?.isBanned == true) {
                     println("User is banned, showing dialog")

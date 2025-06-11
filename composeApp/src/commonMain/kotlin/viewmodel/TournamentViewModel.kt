@@ -13,6 +13,7 @@ import data.model.TournamentStatus
 import data.model.User
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -89,6 +90,11 @@ class TournamentViewModel(
         }
     }
 
+    fun getCurrentUserData() {
+        viewModelScope.launch {
+            loadCurrentUser()
+        }
+    }
     // Get a tournament by ID
     fun getTournamentById(tournamentId: String) {
         viewModelScope.launch {
@@ -162,19 +168,42 @@ class TournamentViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val currentUserId = auth.getCurrentUser()?.uid
-                if (currentUserId == null) {
+                // 1. Check user authentication
+                val currentUserId = auth.getCurrentUser()?.uid ?: run {
                     _errorMessage.value = "You must be logged in to report scores"
                     return@launch
                 }
 
+                // 2. Get current user data (ensure it's loaded)
+                if (_currentUser.value == null) {
+                    loadCurrentUser()
+                    delay(500) // Brief delay to allow loading
+                }
+
+                val user = _currentUser.value ?: run {
+                    _errorMessage.value = "User data not available"
+                    return@launch
+                }
+
+                // 3. Check if user belongs to a team and has the appropriate role
+                val userTeamId = user.teamMembership?.teamId ?: run {
+                    _errorMessage.value = "You are not part of a team"
+                    return@launch
+                }
+
+                val userRole = user.teamMembership.role
+                if (userRole != TeamRole.PRESIDENT && userRole != TeamRole.VICE_PRESIDENT && userRole != TeamRole.CAPTAIN) {
+                    _errorMessage.value = "Only team captains and leaders can report scores"
+                    return@launch
+                }
+
+                // 4. Get match data and validate team membership
                 val match = tournamentRepository.getMatchById(matchId) ?: run {
                     _errorMessage.value = "Match not found"
                     return@launch
                 }
 
-                // Determine if current user is reporting as home or away team
-                val userTeamId = currentUser.value?.teamMembership?.teamId
+                // 5. Check if user's team is part of this match
                 val isHomeTeam = userTeamId == match.homeTeamId
                 val isAwayTeam = userTeamId == match.awayTeamId
 
@@ -183,9 +212,22 @@ class TournamentViewModel(
                     return@launch
                 }
 
+                // 6. Basic score validation
+                if (homeScore < 0 || awayScore < 0) {
+                    _errorMessage.value = "Scores cannot be negative"
+                    return@launch
+                }
+
+                // 7. Check if this team already reported scores
+                if ((isHomeTeam && match.homeTeamConfirmed) || (isAwayTeam && match.awayTeamConfirmed)) {
+                    _errorMessage.value = "Your team has already reported a score for this match"
+                    return@launch
+                }
+
+                // 8. Report score to repository
                 val success = tournamentRepository.reportMatchResult(
                     matchId = matchId,
-                    teamId = userTeamId ?: "",
+                    teamId = userTeamId,
                     isHomeTeam = isHomeTeam,
                     reportedByUserId = currentUserId,
                     homeScore = homeScore,
@@ -194,16 +236,17 @@ class TournamentViewModel(
 
                 if (success) {
                     _successMessage.value = "Score reported successfully"
-                    // Refresh match data
+
+                    // 9. Refresh match data to show updated status
                     _currentTournament.value?.id?.let { tournamentId ->
                         loadTournamentMatches(tournamentId)
                     }
                 } else {
                     _errorMessage.value = "Failed to report score"
                 }
-
             } catch (e: Exception) {
                 _errorMessage.value = "Error reporting score: ${e.message}"
+                e.printStackTrace() // For debugging
             } finally {
                 _isLoading.value = false
             }
