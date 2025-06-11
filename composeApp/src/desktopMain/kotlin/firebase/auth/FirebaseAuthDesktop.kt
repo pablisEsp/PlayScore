@@ -377,6 +377,101 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
             return false
         }
     }
+
+    override suspend fun isEmailVerified(): Boolean {
+        val token = getIdToken()
+        if (token.isBlank()) {
+            println("Cannot check email verification: No authentication token")
+            return false
+        }
+
+        try {
+            println("Checking email verification status for user: ${currentUser?.email}")
+            val response = withContext(Dispatchers.IO) {
+                client.get("$apiUrl/is-email-verified") {
+                    header("Authorization", "Bearer $token")
+                }
+            }
+
+            val responseBody = response.body<AuthResponseBody>()
+            return if (responseBody.success) {
+                // Assuming the server returns a 'verified' field in the success response
+                // You might need to modify this based on your actual server implementation
+                responseBody.email?.contains("verified") ?: false
+            } else {
+                println("Failed to check email verification: ${responseBody.errorMessage}")
+                false
+            }
+        } catch (e: Exception) {
+            println("Check email verification exception: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    override suspend fun reloadUser(): Boolean {
+        val token = getIdToken()
+        if (token.isBlank()) {
+            println("Cannot reload user: No authentication token")
+            return false
+        }
+
+        try {
+            println("Reloading user data for: ${currentUser?.email}")
+            val response = withContext(Dispatchers.IO) {
+                client.get("$apiUrl/reload-user") {
+                    header("Authorization", "Bearer $token")
+                }
+            }
+
+            val responseBody = response.body<AuthResponseBody>()
+            return if (responseBody.success) {
+                // Update the current user with refreshed data if available
+                if (responseBody.email != null || responseBody.displayName != null) {
+                    currentUser = currentUser?.copy(
+                        email = responseBody.email ?: currentUser?.email ?: "",
+                        displayName = responseBody.displayName ?: currentUser?.displayName ?: ""
+                    )
+                    saveAuthState()
+                }
+                println("User data reloaded successfully")
+                true
+            } else {
+                println("Failed to reload user: ${responseBody.errorMessage}")
+                false
+            }
+        } catch (e: Exception) {
+            println("Reload user exception: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    override suspend fun sendPasswordResetEmail(email: String): Boolean {
+        try {
+            println("Sending password reset email to: $email")
+            val response = withContext(Dispatchers.IO) {
+                client.post("$apiUrl/reset-password") {
+                    contentType(ContentType.Application.Json)
+                    setBody(AuthRequestBody(email = email, password = ""))
+                }
+            }
+
+            val responseBody = response.body<AuthResponseBody>()
+            return if (responseBody.success) {
+                println("Password reset email sent successfully")
+                true
+            } else {
+                println("Failed to send password reset email: ${responseBody.errorMessage}")
+                false
+            }
+        } catch (e: Exception) {
+            println("Send password reset email exception: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
 }
 
 actual fun createFirebaseAuth(): FirebaseAuthInterface = FirebaseAuthDesktop.getInstance()

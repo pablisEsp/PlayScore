@@ -170,8 +170,9 @@ fun AppNavHost(
         }
     ) { innerPadding ->
         // Apply a reduced top padding while keeping the other sides from innerPadding
+        val topPadding = (innerPadding.calculateTopPadding() - 16.dp).coerceAtLeast(0.dp)
         val customPadding = PaddingValues(
-            top = innerPadding.calculateTopPadding() - 16.dp, // Reduce by 16.dp for minimal padding
+            top = topPadding, // Reduce by 16.dp for minimal padding
             bottom = innerPadding.calculateBottomPadding(),
             start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
             end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
