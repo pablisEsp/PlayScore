@@ -50,6 +50,7 @@ import org.koin.compose.koinInject
 import playscore.composeapp.generated.resources.Res
 import playscore.composeapp.generated.resources.greenlogo
 import ui.admin.AdminPanelScreen
+import ui.admin.UserManagementScreen
 import ui.auth.EmailVerificationScreen
 import ui.auth.ForgotPasswordScreen
 import ui.auth.LoginScreen
@@ -177,6 +178,9 @@ fun AppNavHost(
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
                 composable<AdminPanel> { AdminPanelScreen(navController) }
+                composable<UserManagement> {
+                    UserManagementScreen()
+                }
                 composable<CreateTournament> { CreateTournamentScreen(navController) }
                 composable<TeamTournaments> {
                     val teamViewModel = koinInject<TeamViewModel>()

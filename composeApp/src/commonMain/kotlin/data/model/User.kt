@@ -13,6 +13,7 @@ data class User(
     val profileImage: String = "",
     val stats: UserStats = UserStats(),
     //val preferredLanguage : String = "en",
+    val isBanned: Boolean? = false,
     val createdAt: String = ""
 )
 

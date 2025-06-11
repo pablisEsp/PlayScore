@@ -55,3 +55,6 @@ data object CreateTournament
 
 @Serializable
 data object AdminPanel
+
+@Serializable
+data object UserManagement

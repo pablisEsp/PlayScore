@@ -93,7 +93,7 @@ fun AdminPanelScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Button(
-                            onClick = { /* Navigate to user management */ },
+                            onClick = { navController.navigate("navigation.UserManagement") },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Manage Users")

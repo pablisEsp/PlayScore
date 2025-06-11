@@ -13,6 +13,7 @@ import org.koin.dsl.module
 import repository.FirebaseLikeRepository
 import repository.FirebasePostRepository
 import repository.FirebaseTournamentRepository
+import repository.FirebaseUserRepository
 import repository.LikeRepository
 import viewmodel.HomeViewModel
 import viewmodel.LoginViewModel
@@ -25,6 +26,7 @@ import viewmodel.AdminViewModel
 import kotlin.coroutines.CoroutineContext
 import repository.PostRepository
 import repository.TournamentRepository
+import repository.UserRepository
 import viewmodel.TeamViewModel
 import viewmodel.UserViewModel
 import viewmodel.TournamentViewModel
@@ -42,6 +44,7 @@ val appModule = module {
     single<PostRepository> { FirebasePostRepository(get()) }
     single<LikeRepository> { FirebaseLikeRepository(get()) }
     single<TournamentRepository> { FirebaseTournamentRepository(get()) }
+    single<UserRepository> { FirebaseUserRepository(get()) }
 
     // Provide a default CoroutineContext for ViewModels
     single<CoroutineContext> { Dispatchers.Main }

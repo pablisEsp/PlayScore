@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.model.Tournament
 import data.model.User
+import data.model.UserRole
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,8 @@ import repository.TournamentRepository
 class AdminViewModel(
     private val auth: FirebaseAuthInterface,
     private val database: FirebaseDatabaseInterface,
-    public val tournamentRepository: TournamentRepository
+    val tournamentRepository: TournamentRepository,
+    private val userRepository: repository.UserRepository
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -31,9 +33,85 @@ class AdminViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _users = MutableStateFlow<List<User>>(emptyList())
+    val users: StateFlow<List<User>> = _users.asStateFlow()
+
+
     init {
         checkAdminAccess()
         loadTournaments()
+    }
+
+    fun loadAllUsers() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val allUsers = userRepository.getAllUsers()
+                _users.value = allUsers
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load users: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    suspend fun updateUserRole(userId: String, newRole: UserRole): Boolean {
+        // Prevent non-super-admins from assigning SUPER_ADMIN role
+        if (currentUser.value?.globalRole != UserRole.SUPER_ADMIN && newRole == UserRole.SUPER_ADMIN) {
+            _errorMessage.value = "Only Super Admins can assign Super Admin role"
+            return false
+        }
+
+        _isLoading.value = true
+        return try {
+            val success = userRepository.updateUserRole(userId, newRole)
+            if (success) {
+                // Update the user in the local list
+                _users.value = _users.value.map { user ->
+                    if (user.id == userId) user.copy(globalRole = newRole) else user
+                }
+            } else {
+                _errorMessage.value = "Failed to update user role"
+            }
+            success
+        } catch (e: Exception) {
+            _errorMessage.value = "Error updating role: ${e.message}"
+            false
+        } finally {
+            _isLoading.value = false
+        }
+    }
+
+    suspend fun toggleUserBan(userId: String, isBanned: Boolean): Boolean {
+        // Prevent self-banning
+        if (userId == _currentUser.value?.id) {
+            _errorMessage.value = "You cannot ban yourself"
+            return false
+        }
+
+        _isLoading.value = true
+        return try {
+            val success = userRepository.toggleUserBan(userId, isBanned)
+            if (success) {
+                // Update the user in the local list
+                _users.value = _users.value.map { user ->
+                    if (user.id == userId) {
+                        user.copy(isBanned = isBanned)
+                    } else {
+                        user
+                    }
+                }
+            } else {
+                _errorMessage.value = "Failed to ${if (isBanned) "ban" else "unban"} user"
+            }
+            success
+        } catch (e: Exception) {
+            _errorMessage.value = "Error: ${e.message}"
+            false
+        } finally {
+            _isLoading.value = false
+        }
     }
 
     fun checkAdminAccess() {

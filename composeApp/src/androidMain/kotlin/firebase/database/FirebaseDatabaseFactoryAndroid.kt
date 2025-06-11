@@ -297,6 +297,28 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
 
             // Check element type rather than full serializer name
             when {
+                elementType.endsWith("data.model.User") -> {
+                    val user = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
+                        val userId = childSnapshot.key ?: ""
+                        User(
+                            id = userId,
+                            name = valueMap["name"] as? String ?: "",
+                            email = valueMap["email"] as? String ?: "",
+                            username = valueMap["username"] as? String ?: "",
+                            globalRole = when (valueMap["globalRole"] as? String) {
+                                "ADMIN" -> UserRole.ADMIN
+                                "SUPER_ADMIN" -> UserRole.SUPER_ADMIN
+                                else -> UserRole.USER
+                            },
+                            teamMembership = null, // Add logic to extract team membership if needed
+                            profileImage = valueMap["profileImage"] as? String ?: "",
+                            isBanned = valueMap["isBanned"] as? Boolean ?: false,
+                            createdAt = valueMap["createdAt"] as? String ?: ""
+                        )
+                    }
+                    if (user != null) items.add(user as T)
+                }
+
                 elementType.endsWith("data.model.Post") -> {
                     val post = childSnapshot.getValue(object : GenericTypeIndicator<Map<String, Any?>>() {})?.let { valueMap ->
                         val postId = childSnapshot.key ?: ""
