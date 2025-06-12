@@ -6,11 +6,18 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import navigation.Home
-import navigation.Profile
 import navigation.Search
 import navigation.Team
 import utils.icons.Teams
@@ -37,25 +43,25 @@ data class NavigationItem(
 
 private val bottomNavItems = listOf(
     NavigationItem(
-        route = Home,
-        icon = Icons.Default.Home,
-        title = "Home"
-    ),
-    NavigationItem(
         route = Search(),
         icon = Icons.Default.Search,
         title = "Search"
+    ),
+    NavigationItem(
+        route = Home,
+        icon = Icons.Default.Home,
+        title = "Home"
     ),
     NavigationItem(
         route = Team,
         icon = Teams,
         title = "Team"
     ),
-    NavigationItem(
-        route = Profile,
-        icon = Icons.Default.Person,
-        title = "Profile"
-    )
+    /*NavigationItem(
+        route = TeamTournaments,
+        icon = TournamentIcon,
+        title = "Tournaments"
+    )*/
 )
 
 @Composable

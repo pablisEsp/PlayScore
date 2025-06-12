@@ -5,7 +5,6 @@ Un proyecto de **Kotlin Multiplatform** para gestionar y seguir puntuaciones de 
 ## 📱 Plataformas Soportadas
 
 - **Android** 📱
-- **iOS** 🍎
 - **Desktop** 🖥️ (JVM)
 
 ## 🚀 Características
@@ -20,7 +19,6 @@ Un proyecto de **Kotlin Multiplatform** para gestionar y seguir puntuaciones de 
 - **Kotlin Multiplatform Mobile (KMM)**
 - **Compose Multiplatform** para UI
 - **Kotlin/JVM** para Desktop
-- **Kotlin/Native** para iOS
 - **Android SDK** para Android
 
 ## 📋 Requisitos Previos
@@ -29,10 +27,6 @@ Un proyecto de **Kotlin Multiplatform** para gestionar y seguir puntuaciones de 
 - **JDK 17** o superior
 - **Android Studio** (Arctic Fox o superior)
 - **Kotlin** 1.9.0+
-
-### Para iOS
-- **Xcode** 14.0+
-- **macOS** (para desarrollo iOS)
 
 ### Para Desktop
 - **JVM** 17+
@@ -64,13 +58,6 @@ cd PlayScore
 # Ejecutar en dispositivo/emulador Android
 ```
 
-#### iOS
-```bash
-# Abrir el proyecto iOS en Xcode
-# Configurar signing certificates
-# Ejecutar en simulador/dispositivo iOS
-```
-
 #### Desktop
 ```bash
 # 1. PRIMERO: Iniciar el servidor backend
@@ -87,11 +74,6 @@ cd PlayScore
 ./gradlew :composeApp:installDebug
 ```
 
-### iOS
-```bash
-./gradlew :composeApp:iosSimulatorArm64Test
-```
-
 ### Desktop
 ```bash
 # ⚠️ IMPORTANTE: Asegúrate de que el servidor esté corriendo primero
@@ -106,7 +88,6 @@ PlayScore/
 │   ├── src/
 │   │   ├── commonMain/     # Código compartido
 │   │   ├── androidMain/    # Código específico Android
-│   │   ├── iosMain/        # Código específico iOS
 │   │   └── desktopMain/    # Código específico Desktop
 │   └── build.gradle.kts
 ├── server/                 # Servidor backend (requerido para Desktop)

@@ -16,8 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -37,8 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -76,10 +74,10 @@ import ui.tournament.TournamentApplicationsScreen
 import ui.tournament.TournamentBracketScreen
 import ui.tournament.TournamentDetailScreen
 import ui.tournament.TournamentManagementScreen
+import utils.icons.Admin_panel_settings
 import utils.isDesktop
 import viewmodel.TeamViewModel
 import viewmodel.UserViewModel
-import utils.icons.Admin_panel_settings
 
 
 @Composable
@@ -110,8 +108,8 @@ fun AppNavHost(
             currentRoute in listOf(
         Home::class.qualifiedName,
         Team::class.qualifiedName,
-        Profile::class.qualifiedName,
-        Settings::class.qualifiedName
+        //TeamTournaments::class.qualifiedName,
+        Profile::class.qualifiedName
     )
 
     // Define when to hide the top bar (authentication screens)
@@ -129,6 +127,7 @@ fun AppNavHost(
             val screenTitle = when {
                 currentRoute == Home::class.qualifiedName -> "Feed"
                 currentRoute == Team::class.qualifiedName -> "Teams"
+                //currentRoute == TeamTournaments::class.qualifiedName -> "Tournaments"
                 currentRoute == Profile::class.qualifiedName -> "Profile"
                 currentRoute == Settings::class.qualifiedName -> "Settings"
                 // Check if route starts with Search class name instead of exact match

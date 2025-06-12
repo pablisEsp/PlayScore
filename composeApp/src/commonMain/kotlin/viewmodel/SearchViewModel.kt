@@ -36,10 +36,11 @@ class SearchViewModel(
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-        if (query.length >= 2) {
+        if (query.isNotEmpty()) {
             debounceSearch()
         } else {
-            _searchResults.value = emptyList()
+            // Even when query is empty, still show all results
+            performSearch()
         }
     }
 
@@ -58,7 +59,6 @@ class SearchViewModel(
 
     private fun performSearch() {
         val query = _searchQuery.value
-        if (query.length < 2) return
 
         viewModelScope.launch {
             _isSearching.value = true
@@ -94,17 +94,25 @@ class SearchViewModel(
 
     private suspend fun searchTeams(query: String): List<Team> {
         val allTeams = database.getCollection<Team>("teams", ListSerializer(Team.serializer()))
-        return allTeams.filter { team ->
-            team.name.contains(query, ignoreCase = true) ||
-                    team.description.contains(query, ignoreCase = true)
+        return if (query.isEmpty()) {
+            allTeams
+        } else {
+            allTeams.filter { team ->
+                team.name.contains(query, ignoreCase = true) ||
+                        team.description.contains(query, ignoreCase = true)
+            }
         }
     }
 
     private suspend fun searchUsers(query: String): List<User> {
         val allUsers = database.getCollection<User>("users", ListSerializer(User.serializer()))
-        return allUsers.filter { user ->
-            user.name.contains(query, ignoreCase = true) ||
-                    user.username.contains(query, ignoreCase = true)
+        return if (query.isEmpty()) {
+            allUsers
+        } else {
+            allUsers.filter { user ->
+                user.name.contains(query, ignoreCase = true) ||
+                        user.username.contains(query, ignoreCase = true)
+            }
         }
     }
 

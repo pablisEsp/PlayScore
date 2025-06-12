@@ -54,6 +54,11 @@ fun SearchScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        // Trigger search with empty query to load all data
+        searchViewModel.updateSearchQuery("")
+    }
+
     // Handle error messages
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
@@ -125,19 +130,12 @@ fun SearchScreen(
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (searchResults.isEmpty() && searchQuery.length >= 2) {
+            } else if (searchResults.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("No results found")
-                }
-            } else if (searchQuery.length < 2) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Enter at least 2 characters to search")
                 }
             } else {
                 LazyColumn(
