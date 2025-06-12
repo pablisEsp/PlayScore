@@ -27,13 +27,15 @@ import viewmodel.TeamViewModel
 @Composable
 fun TeamScreen(
     navController: NavController,
-    teamViewModel: TeamViewModel = koinInject()
+    teamViewModel: TeamViewModel = koinInject(),
 ) {
     val currentUser by teamViewModel.currentUser.collectAsState()
     val isLoading by teamViewModel.isLoading.collectAsState()
     val currentTeam by teamViewModel.currentTeam.collectAsState()
     val joinRequests by teamViewModel.teamJoinRequests.collectAsState()
     var showManagementSheet by remember { mutableStateOf(false) }
+
+    var selectedTabIndex by remember { mutableStateOf(0) }
 
     val isTeamLeader = currentUser?.teamMembership?.role in listOf(TeamRole.PRESIDENT, TeamRole.VICE_PRESIDENT)
 
@@ -51,7 +53,6 @@ fun TeamScreen(
         // "Requests" tab is removed as its content is now part of the Members tab for leaders
         listOf("Overview", membersTabTitle, "Tournaments")
     }
-    var selectedTabIndex by remember { mutableStateOf(0) }
 
     // Adjust selectedTabIndex if it's out of bounds due to tabTitles changing
     LaunchedEffect(tabTitles.size) {
@@ -134,7 +135,8 @@ fun TeamScreen(
                                 team = team,
                                 onDismiss = { showManagementSheet = false },
                                 viewModel = teamViewModel,
-                                navController = navController
+                                navController = navController,
+                                onSelectTab = { newIndex -> selectedTabIndex = newIndex }
                             )
                         }
                     }
@@ -213,7 +215,8 @@ fun TeamManagementSheet(
     team: Team,
     onDismiss: () -> Unit,
     viewModel: TeamViewModel = koinInject(),
-    navController: NavController
+    navController: NavController,
+    onSelectTab: (Int) -> Unit
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
     val isPresident = currentUser?.teamMembership?.role == TeamRole.PRESIDENT
@@ -257,7 +260,10 @@ fun TeamManagementSheet(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = { /* Navigate to manage roles */ },
+                            onClick = {
+                                onDismiss() // Close the sheet first
+                                onSelectTab(1) // Select the Members tab (index 1)
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Manage Team Roles")

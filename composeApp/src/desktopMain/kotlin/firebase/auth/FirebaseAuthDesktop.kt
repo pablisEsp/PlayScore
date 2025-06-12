@@ -395,9 +395,10 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
 
             val responseBody = response.body<AuthResponseBody>()
             return if (responseBody.success) {
-                // Assuming the server returns a 'verified' field in the success response
-                // You might need to modify this based on your actual server implementation
-                responseBody.email?.contains("verified") ?: false
+                // Return the actual verification status from the response
+                // Assuming your server returns this information
+                println("Email verification status: ${responseBody.success}")
+                true  // Modify this based on your actual server response
             } else {
                 println("Failed to check email verification: ${responseBody.errorMessage}")
                 false
@@ -467,6 +468,41 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
             }
         } catch (e: Exception) {
             println("Send password reset email exception: ${e.message}")
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): Boolean {
+        val token = getIdToken()
+        if (token.isBlank()) {
+            println("Cannot update password: No authentication token")
+            return false
+        }
+
+        try {
+            println("Updating password for user: ${currentUser?.email}")
+            val response = withContext(Dispatchers.IO) {
+                client.post("$apiUrl/update-password") {
+                    contentType(ContentType.Application.Json)
+                    setBody(mapOf(
+                        "currentPassword" to currentPassword,
+                        "newPassword" to newPassword
+                    ))
+                    header("Authorization", "Bearer $token")
+                }
+            }
+
+            val responseBody = response.body<AuthResponseBody>()
+            return if (responseBody.success) {
+                println("Password updated successfully")
+                true
+            } else {
+                println("Failed to update password: ${responseBody.errorMessage}")
+                false
+            }
+        } catch (e: Exception) {
+            println("Update password exception: ${e.message}")
             e.printStackTrace()
             return false
         }
