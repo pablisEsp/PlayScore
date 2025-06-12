@@ -84,12 +84,6 @@ kotlin {
             // For Task.await() extension
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 
-            //implementation("androidx.core:core-splashscreen:1.0.1")
-
-            //Google sign-in
-            //implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
-
-
         }
         commonMain.dependencies {
             // Compose
@@ -137,9 +131,6 @@ kotlin {
 
             implementation("org.slf4j:slf4j-simple:1.7.36")
             implementation("io.ktor:ktor-client-logging:${libs.versions.ktor.get()}")
-
-            // For Google OAuth on desktop
-            //implementation("com.google.api-client:google-api-client:2.7.2")
 
         }
 

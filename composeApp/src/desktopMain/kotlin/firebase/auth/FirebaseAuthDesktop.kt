@@ -52,7 +52,7 @@ class FirebaseAuthDesktop private constructor() : FirebaseAuthInterface {
     }
 
     // Get API URL from environment variable or use default for local development
-    private val apiUrl = EnvironmentConfig.AUTH_API_URL
+    private val apiUrl = "http://localhost:3000/api/auth"
     private var currentUser: UserInfo? = null
     private var idToken: String? = null
     private var tokenExpiry: Long = 0

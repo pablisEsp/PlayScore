@@ -49,8 +49,6 @@ import data.model.Tournament
 import data.model.TournamentMatch
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import utils.icons.Chevron_left
-import utils.icons.Chevron_right
 import viewmodel.TournamentViewModel
 
 @Composable

@@ -34,7 +34,7 @@ class FirebaseDatabaseDesktop(private val auth: FirebaseAuthInterface) : Firebas
         println("Current user: ${auth.getCurrentUser()}")
     }
 
-    private val apiBaseUrl = EnvironmentConfig.getEnv("DATABASE_API_URL") ?: "http://localhost:3000/api"
+    private val apiBaseUrl = "http://localhost:3000/api"
 
     override suspend fun saveUserData(userData: User): Boolean {
         // You may want to add a POST /user endpoint on your server for this to work
