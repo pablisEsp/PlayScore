@@ -27,7 +27,7 @@ import navigation.Home
 import navigation.Profile
 import navigation.Search
 import navigation.Team
-import ui.icons.Teams
+import utils.icons.Teams
 
 data class NavigationItem(
     val route: Any,

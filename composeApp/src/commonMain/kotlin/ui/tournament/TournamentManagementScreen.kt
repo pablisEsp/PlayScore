@@ -21,7 +21,7 @@ import navigation.EditTournament
 import navigation.TournamentApplications
 import org.koin.compose.koinInject
 import repository.TournamentRepository
-import ui.icons.Group_add
+import utils.icons.Group_add
 import viewmodel.AdminViewModel
 
 @Composable

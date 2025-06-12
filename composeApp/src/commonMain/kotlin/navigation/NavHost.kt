@@ -79,7 +79,7 @@ import ui.tournament.TournamentManagementScreen
 import utils.isDesktop
 import viewmodel.TeamViewModel
 import viewmodel.UserViewModel
-import ui.icons.Admin_panel_settings
+import utils.icons.Admin_panel_settings
 
 
 @Composable

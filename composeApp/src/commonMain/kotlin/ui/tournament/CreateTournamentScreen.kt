@@ -229,13 +229,8 @@ fun CreateTournamentScreen(
                     scope.launch {
                         val success = adminViewModel.createTournamentInDb(tournament)
                         if (success) {
-                            snackbarHostState.showSnackbar("Tournament created successfully!")
-                            navController.navigate(Home) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    inclusive = true
-                                }
-                                launchSingleTop = true
-                            }
+                            // Simply go back to the previous screen (admin panel)
+                            navController.popBackStack()
                         }
                         // Error message will be shown by the LaunchedEffect from ViewModel
                     }

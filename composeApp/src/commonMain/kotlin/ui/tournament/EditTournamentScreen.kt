@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.BracketType
@@ -186,7 +187,9 @@ fun EditTournamentScreen(
                         )
                         Text(
                             text = statusOption.name.replace('_', ' '),
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.labelSmall,  // Changed from bodySmall to labelSmall
+                            maxLines = 1,                                 // Ensure single line
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -246,7 +249,11 @@ fun EditTournamentScreen(
                         scope.launch {
                             val success = adminViewModel.tournamentRepository.updateTournament(updatedTournament)
                             if (success) {
-                                snackbarHostState.showSnackbar("Tournament updated successfully")
+                                // Show success message but don't wait for it to navigate back
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Tournament updated successfully")
+                                }
+                                // Immediately navigate back
                                 navController.popBackStack()
                             } else {
                                 snackbarHostState.showSnackbar("Failed to update tournament")

@@ -1,4 +1,4 @@
-package ui.icons
+package utils.icons
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-val Tournaments: ImageVector
+val TournamentIcon: ImageVector
     get() {
         if (_Sports_soccer != null) return _Sports_soccer!!
 
@@ -92,3 +92,4 @@ val Tournaments: ImageVector
     }
 
 private var _Sports_soccer: ImageVector? = null
+

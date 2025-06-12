@@ -24,7 +24,7 @@ import navigation.PostDetail
 import org.koin.compose.koinInject
 import ui.components.RefreshableContainer
 import ui.components.rememberRefreshHandler
-import ui.icons.Report
+import utils.icons.Report
 import utils.isDesktop
 import viewmodel.HomeViewModel
 import viewmodel.PostViewModel
