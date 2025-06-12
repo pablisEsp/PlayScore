@@ -28,6 +28,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -248,7 +249,7 @@ fun SingleEliminationBracket(
                 divider = { /* No divider */ },
                 indicator = { tabPositions ->
                     if (pagerState.currentPage < tabPositions.size) {
-                        TabRowDefaults.Indicator(
+                        SecondaryIndicator(
                             modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
                             height = 3.dp,
                             color = MaterialTheme.colorScheme.primary
@@ -705,8 +706,7 @@ fun MatchCard(
                         MatchStatus.SCHEDULED -> "Upcoming"
                         MatchStatus.IN_PROGRESS -> "In Progress"
                         MatchStatus.COMPLETED -> "Completed"
-                        MatchStatus.IN_PROGRESS -> "Score Disputed"
-                        else -> match.status.toString()
+                        MatchStatus.CANCELLED -> "Cancelled"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = when(match.status) {

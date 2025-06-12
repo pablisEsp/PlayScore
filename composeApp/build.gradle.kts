@@ -27,6 +27,8 @@ kotlin {
         }
     }
 
+    /*
+    EXCLUDING IOS TARGETS FOR NOW
     listOf(
         iosX64(),
         iosArm64(),
@@ -36,7 +38,7 @@ kotlin {
             baseName = "ComposeApp"
             isStatic = true
         }
-    }
+    }*/
     /*
     cocoapods {
         version = "1.0.0"
