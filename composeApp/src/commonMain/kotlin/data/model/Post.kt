@@ -9,6 +9,7 @@ data class Post(
     val id: String = "",
     val authorId: String = "",
     val authorName: String = "",
+    val authorUsername: String = "",
     val content: String = "",
     val mediaUrls: List<String> = emptyList(),
     val likeCount: Int = 0,

@@ -205,7 +205,7 @@ fun PostCard(
 
                     // Display username with @ symbol
                     Text(
-                        text = "@${post.authorName.lowercase().replace(" ", "_")}",
+                        text = "@${post.authorUsername}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.outline
                     )

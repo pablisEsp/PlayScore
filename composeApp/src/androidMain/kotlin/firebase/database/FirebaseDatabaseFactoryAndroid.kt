@@ -333,6 +333,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             id = postId,
                             authorId = valueMap["authorId"] as? String ?: "",
                             authorName = valueMap["authorName"] as? String ?: "",
+                            authorUsername = valueMap["authorUsername"] as? String ?: "",
                             content = valueMap["content"] as? String ?: "",
                             mediaUrls = (valueMap["mediaUrls"] as? List<String>) ?: emptyList(),
                             likeCount = (valueMap["likeCount"] as? Long)?.toInt() ?: 0,
@@ -724,6 +725,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
         return mapOf(
             "authorId" to authorId,
             "authorName" to authorName,
+            "authorUsername" to authorUsername,
             "content" to content,
             "mediaUrls" to mediaUrls,
             "likeCount" to likeCount,
@@ -768,6 +770,7 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         id = id,
                         authorId = map["authorId"] as? String ?: "",
                         authorName = map["authorName"] as? String ?: "",
+                        authorUsername = map["authorUsername"] as? String ?: "",
                         content = map["content"] as? String ?: "",
                         mediaUrls = map["mediaUrls"] as? List<String> ?: emptyList(),
                         likeCount = (map["likeCount"] as? Number)?.toInt() ?: 0,
@@ -776,8 +779,22 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                     ) as T
                 }
                 "data.model.Team" -> {
-                    // Existing Team code
-                    data.model.Team(/* your existing code */) as T
+                    data.model.Team(
+                        id = id,
+                        name = map["name"] as? String ?: "",
+                        description = map["description"] as? String ?: "",
+                        presidentId = map["presidentId"] as? String ?: "",
+                        vicePresidentId = map["vicePresidentId"] as? String,
+                        captainIds = map["captainIds"] as? List<String> ?: emptyList(),
+                        playerIds = map["playerIds"] as? List<String> ?: emptyList(),
+                        pointsTotal = (map["pointsTotal"] as? Number)?.toInt() ?: 0,
+                        createdAt = map["createdAt"] as? String ?: "",
+                        logoUrl = map["logoUrl"] as? String ?: "",
+                        location = map["location"] as? String ?: "",
+                        ranking = (map["ranking"] as? Number)?.toInt() ?: 0,
+                        totalWins = (map["totalWins"] as? Number)?.toInt() ?: 0,
+                        totalLosses = (map["totalLosses"] as? Number)?.toInt() ?: 0
+                    ) as T
                 }
                 "data.model.TeamJoinRequest" -> {
                     // New case to handle TeamJoinRequest

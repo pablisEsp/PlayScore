@@ -54,6 +54,7 @@ class PostViewModel(
                 val post = Post(
                     authorId = currentUser.id,
                     authorName = currentUser.name,
+                    authorUsername = currentUser.username,
                     content = content,
                     mediaUrls = mediaUrls,
                     parentPostId = parentPostId,
