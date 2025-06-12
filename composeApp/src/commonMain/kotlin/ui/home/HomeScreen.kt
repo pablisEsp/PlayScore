@@ -24,6 +24,7 @@ import navigation.PostDetail
 import org.koin.compose.koinInject
 import ui.components.RefreshableContainer
 import ui.components.rememberRefreshHandler
+import ui.icons.Report
 import utils.isDesktop
 import viewmodel.HomeViewModel
 import viewmodel.PostViewModel
@@ -229,7 +230,7 @@ fun PostCard(
                             // Report option - available to all users
                             DropdownMenuItem(
                                 text = { Text("Report post") },
-                                leadingIcon = { Icon(Icons.Default.Close, "Report") },
+                                leadingIcon = { Icon(Report, "Report") },
                                 onClick = {
                                     showMenu = false
                                     showReportDialog = true

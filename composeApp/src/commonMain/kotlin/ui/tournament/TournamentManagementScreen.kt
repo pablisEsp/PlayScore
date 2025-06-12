@@ -21,6 +21,7 @@ import navigation.EditTournament
 import navigation.TournamentApplications
 import org.koin.compose.koinInject
 import repository.TournamentRepository
+import ui.icons.Group_add
 import viewmodel.AdminViewModel
 
 @Composable
@@ -180,7 +181,7 @@ private fun TournamentCard(
                 if (tournament.status == TournamentStatus.REGISTRATION) {
                     IconButton(onClick = { showPopulateTeamsConfirmation = true }) {
                         Icon(
-                            Icons.Default.Person,
+                            Group_add,
                             contentDescription = "Add Demo Teams",
                             tint = MaterialTheme.colorScheme.tertiary
                         )

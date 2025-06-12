@@ -27,6 +27,7 @@ import navigation.Home
 import navigation.Profile
 import navigation.Search
 import navigation.Team
+import ui.icons.Teams
 
 data class NavigationItem(
     val route: Any,
@@ -47,7 +48,7 @@ private val bottomNavItems = listOf(
     ),
     NavigationItem(
         route = Team,
-        icon = Icons.Default.Person,
+        icon = Teams,
         title = "Team"
     ),
     NavigationItem(

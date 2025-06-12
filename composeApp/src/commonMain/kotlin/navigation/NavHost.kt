@@ -79,6 +79,8 @@ import ui.tournament.TournamentManagementScreen
 import utils.isDesktop
 import viewmodel.TeamViewModel
 import viewmodel.UserViewModel
+import ui.icons.Admin_panel_settings
+
 
 @Composable
 fun AppNavHost(
@@ -364,7 +366,7 @@ fun AppTopBar(
                 if (isAdmin) {
                     IconButton(onClick = { navController.navigate(AdminPanel) }) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
+                            imageVector = Admin_panel_settings,
                             contentDescription = "Admin Panel"
                         )
                     }
