@@ -70,6 +70,9 @@ fun CreateTournamentScreen(
     var startDateMillis by remember { mutableStateOf<Long?>(null) }
     var endDateMillis by remember { mutableStateOf<Long?>(null) }
 
+    // Get current date in milliseconds for date validation
+    val currentDateMillis = remember { kotlinx.datetime.Clock.System.now().toEpochMilliseconds() }
+
     val dateFormat = "yyyy-MM-dd"
 
     val isLoading by adminViewModel.isLoading.collectAsState()
@@ -78,6 +81,9 @@ fun CreateTournamentScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    var formSubmitted by remember { mutableStateOf(false) }
+
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
@@ -88,9 +94,17 @@ fun CreateTournamentScreen(
 
     ExpectedDatePickerDialog(
         show = showStartDatePicker,
-        initialDateMillis = startDateMillis,
+        initialDateMillis = startDateMillis ?: currentDateMillis,
         onDismissRequest = { showStartDatePicker = false },
         onDateSelected = { millis ->
+            // Validate that selected date is not in the past
+            if (millis < currentDateMillis) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Cannot select a past date for tournament start")
+                }
+                // Don't update the date if it's invalid
+                return@ExpectedDatePickerDialog
+            }
             startDateMillis = millis
             startDateString = formatPlatformDate(millis, dateFormat)
             showStartDatePicker = false
@@ -99,9 +113,17 @@ fun CreateTournamentScreen(
 
     ExpectedDatePickerDialog(
         show = showEndDatePicker,
-        initialDateMillis = endDateMillis,
+        initialDateMillis = endDateMillis ?: (startDateMillis ?: currentDateMillis),
         onDismissRequest = { showEndDatePicker = false },
         onDateSelected = { millis ->
+            // Validate that selected date is not in the past
+            if (millis < currentDateMillis) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Cannot select a past date for tournament end")
+                }
+                // Don't update the date if it's invalid
+                return@ExpectedDatePickerDialog
+            }
             endDateMillis = millis
             endDateString = formatPlatformDate(millis, dateFormat)
             showEndDatePicker = false
@@ -147,7 +169,7 @@ fun CreateTournamentScreen(
                     }
                 },
                 readOnly = true,
-                isError = startDateString.isBlank() && (name.isNotBlank() || endDateString.isNotBlank())
+                isError = formSubmitted && startDateString.isBlank()  // Only show error after submit
             )
 
             OutlinedTextField(
@@ -163,7 +185,7 @@ fun CreateTournamentScreen(
                     }
                 },
                 readOnly = true,
-                isError = endDateString.isBlank() && (name.isNotBlank() || startDateString.isNotBlank())
+                isError = formSubmitted && endDateString.isBlank()  // Only show error after submit
             )
 
             OutlinedTextField(
@@ -200,6 +222,9 @@ fun CreateTournamentScreen(
 
             Button(
                 onClick = {
+                    // Set formSubmitted to true to display validation errors
+                    formSubmitted = true
+
                     if (name.isBlank() || startDateString.isBlank() || endDateString.isBlank() || (maxTeams.toIntOrNull() ?: 0) <= 0) {
                         scope.launch {
                             snackbarHostState.showSnackbar("Please fill all fields correctly.")

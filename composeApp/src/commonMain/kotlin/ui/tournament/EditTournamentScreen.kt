@@ -56,6 +56,8 @@ fun EditTournamentScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    var formSubmitted by remember { mutableStateOf(false) }
+
     // Load the tournament data
     LaunchedEffect(tournamentId) {
         scope.launch {
@@ -144,7 +146,7 @@ fun EditTournamentScreen(
                     }
                 },
                 readOnly = true,
-                isError = startDateString.isBlank()
+                isError = formSubmitted && startDateString.isBlank()  // Show error only after form submission
             )
 
             OutlinedTextField(
@@ -160,7 +162,7 @@ fun EditTournamentScreen(
                     }
                 },
                 readOnly = true,
-                isError = endDateString.isBlank()
+                isError = formSubmitted && startDateString.isBlank()  // Show error only after form submission
             )
 
             OutlinedTextField(
@@ -221,6 +223,9 @@ fun EditTournamentScreen(
 
             Button(
                 onClick = {
+                    // Set formSubmitted to true to potentially show validation errors
+                    formSubmitted = true
+
                     if (name.isBlank() || startDateString.isBlank() || endDateString.isBlank() || (maxTeams.toIntOrNull() ?: 0) <= 0) {
                         scope.launch {
                             snackbarHostState.showSnackbar("Please fill all fields correctly")
