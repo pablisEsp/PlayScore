@@ -90,6 +90,12 @@ class RegisterViewModel(
             return
         }
 
+        // Email format validation
+        if (!isValidEmail(_email.value)) {
+            _registerResult.value = "Please enter a valid email address"
+            return
+        }
+
         _isLoading.value = true
         _registerResult.value = null
 
@@ -132,18 +138,58 @@ class RegisterViewModel(
 
                     // Indicate verification required instead of complete
                     _registerResult.value = "Registered successfully. Please verify your email."
-                    _isEmailVerificationRequired.value = true // Add this state flow property
-
+                    _isEmailVerificationRequired.value = true
                 } else {
-                    // Existing error handling...
+                    // Handle specific Firebase auth errors
+                    val errorMessage = when {
+                        result.errorMessage?.contains("email address is badly formatted") == true ->
+                            "Please enter a valid email address"
+                        result.errorMessage?.contains("password is invalid") == true ->
+                            "Password must be at least 6 characters"
+                        result.errorMessage?.contains("email address is already in use") == true ->
+                            "Email address is already in use"
+                        result.errorMessage?.contains("network error") == true ->
+                            "Network error. Please check your connection and try again"
+                        else -> result.errorMessage ?: "Registration failed"
+                    }
+                    _registerResult.value = errorMessage
+                    _isRegistrationComplete.value = false
                 }
             } catch (e: Exception) {
-                _registerResult.value = "Registration failed: ${e.message}"
+                // Extract meaningful error messages from exceptions
+                val errorMessage = when {
+                    e.message?.contains("badly formatted") == true ->
+                        "The email address is badly formatted"
+                    e.message?.contains("password") == true ->
+                        "Password must be at least 6 characters"
+                    e.message?.contains("already in use") == true ->
+                        "Email address is already in use"
+                    e.message?.contains("network") == true ->
+                        "Network error. Please check your connection"
+                    e.message?.contains("too many requests") == true ->
+                        "Too many attempts. Please try again later"
+                    else -> "Registration failed: ${e.message}"
+                }
+                _registerResult.value = errorMessage
                 _isRegistrationComplete.value = false
             } finally {
                 _isLoading.value = false
             }
         }
+    }
+
+    // Add this helper function to validate email format
+    private fun isValidEmail(email: String): Boolean {
+        val pattern = Regex(
+            "[a-zA-Z0-9+._%\\-]{1,256}" +
+            "@" +
+            "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,64}" +
+            "(" +
+            "\\." +
+            "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,25}" +
+            ")+"
+        )
+        return pattern.matches(email)
     }
 
     fun resetRegistrationState() {
