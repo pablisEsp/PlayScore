@@ -64,3 +64,9 @@ data object UserManagement
 
 @Serializable
 data object ReportedPosts
+
+@Serializable
+data object ChangePassword
+
+@Serializable
+data object AccountSettings

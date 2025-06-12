@@ -11,4 +11,5 @@ interface FirebaseAuthInterface {
     suspend fun isEmailVerified(): Boolean
     suspend fun reloadUser(): Boolean
     suspend fun sendPasswordResetEmail(email: String): Boolean
+    suspend fun updatePassword(currentPassword: String, newPassword: String): Boolean
 }

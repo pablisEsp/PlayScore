@@ -64,6 +64,8 @@ import ui.home.HomeScreen
 import ui.post.PostDetailScreen
 import ui.profile.ProfileScreen
 import ui.search.SearchScreen
+import ui.settings.AccountSettingsScreen
+import ui.settings.ChangePasswordScreen
 import ui.settings.SettingsScreen
 import ui.team.CreateTeamScreen
 import ui.team.TeamScreen
@@ -198,6 +200,12 @@ fun AppNavHost(
                 composable<CreateTeam> { CreateTeamScreen(navController)}
                 composable<Profile> { ProfileScreen(navController) }
                 composable<Settings> { SettingsScreen(navController) }
+                composable<ChangePassword> {
+                    ChangePasswordScreen(navController)
+                }
+                composable<AccountSettings> {
+                    AccountSettingsScreen(navController)
+                }
                 composable<AdminPanel> { AdminPanelScreen(navController) }
                 composable<ReportedPosts> {
                     ReportedPostsScreen(navController)

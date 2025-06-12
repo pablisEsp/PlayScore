@@ -30,6 +30,8 @@ import repository.UserRepository
 import viewmodel.TeamViewModel
 import viewmodel.UserViewModel
 import viewmodel.TournamentViewModel
+import viewmodel.ChangePasswordViewModel
+import viewmodel.AccountSettingsViewModel
 
 // Common module for shared dependencies
 val appModule = module {
@@ -61,6 +63,8 @@ val appModule = module {
     viewModelOf(::AdminViewModel)
     viewModelOf(::UserViewModel)
     viewModelOf(::TournamentViewModel)
+    viewModelOf(::ChangePasswordViewModel)
+    viewModelOf(::AccountSettingsViewModel)
 
 }
 

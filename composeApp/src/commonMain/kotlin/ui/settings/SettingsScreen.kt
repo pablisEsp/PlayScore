@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.UserRole
+import navigation.AccountSettings
+import navigation.ChangePassword
 import org.koin.compose.koinInject
 import viewmodel.UserViewModel
 
@@ -33,19 +35,16 @@ fun SettingsScreen(navController: NavController) {
     val currentUser by viewModel.currentUser.collectAsState()
 
     val isAdmin = currentUser?.globalRole == UserRole.ADMIN ||
-                 currentUser?.globalRole == UserRole.SUPER_ADMIN
+            currentUser?.globalRole == UserRole.SUPER_ADMIN
 
     Scaffold() { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    // Add padding only at the bottom for the navigation bar
                     bottom = innerPadding.calculateBottomPadding(),
-                    // Add horizontal padding to align with other screens
                     start = 16.dp,
                     end = 16.dp,
-                    // Add top padding to create space from the title
                     top = 20.dp
                 )
         ) {
@@ -53,8 +52,21 @@ fun SettingsScreen(navController: NavController) {
                 headlineContent = { Text("Account Settings") },
                 leadingContent = { Icon(Icons.Default.Person, contentDescription = null) },
                 trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
-                modifier = Modifier.clickable { /* Navigate to account settings */ }
+                modifier = Modifier.clickable { navController.navigate(AccountSettings) }
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            ListItem(
+                headlineContent = { Text("Change Password") },
+                leadingContent = {
+                    Icon(Icons.Default.Settings, contentDescription = null)
+                },
+                trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) },
+                modifier = Modifier.clickable { navController.navigate(ChangePassword) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             ListItem(
                 headlineContent = { Text("Notifications") },

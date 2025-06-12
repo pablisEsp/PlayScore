@@ -106,6 +106,26 @@ class FirebaseAuthAndroid : FirebaseAuthInterface {
             false
         }
     }
+
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): Boolean {
+        val user = firebaseAuth.currentUser ?: return false
+
+        // Re-authenticate user first
+        try {
+            val email = user.email ?: return false
+            val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, currentPassword)
+
+            // Re-authenticate
+            user.reauthenticate(credential).await()
+
+            // Then update password
+            user.updatePassword(newPassword).await()
+            return true
+        } catch (e: Exception) {
+            println("Error updating password: ${e.message}")
+            return false
+        }
+    }
 }
 
 actual fun createFirebaseAuth(): FirebaseAuthInterface {
