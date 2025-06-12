@@ -164,15 +164,19 @@ class TeamViewModel(
         _teamCreationResult.value = null
     }
 
-    private suspend fun isTeamNameAvailable(teamName: String): Boolean {
+    private suspend fun isTeamNameAvailable(teamName: String, currentTeamId: String = ""): Boolean {
         try {
-            // Query teams by name to check if this team name already exists
-            val existingTeams = database.getCollectionFiltered<Team>(
+            // Get all teams instead of filtering by name
+            val allTeams = database.getCollection<Team>(
                 path = "teams",
-                field = "name",
-                value = teamName,
                 serializer = kotlinx.serialization.builtins.ListSerializer(Team.serializer())
             )
+
+            // Filter teams locally (case-insensitive comparison)
+            val existingTeams = allTeams.filter {
+                it.name.equals(teamName, ignoreCase = true) && it.id != currentTeamId
+            }
+
             return existingTeams.isEmpty()
         } catch (e: Exception) {
             _errorMessage.value = "Error checking team name: ${e.message}"
@@ -690,6 +694,49 @@ class TeamViewModel(
 
     fun setShowPresidentLeaveWarning(show: Boolean) {
         _showPresidentLeaveWarning.value = show
+    }
+
+    // Add this function to TeamViewModel class
+    fun updateTeamInfo(team: Team) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentUserId = auth.getCurrentUser()?.uid
+                if (currentUserId == null) {
+                    _errorMessage.value = "Not authenticated"
+                    return@launch
+                }
+
+                // Check if user is president
+                if (team.presidentId != currentUserId) {
+                    _errorMessage.value = "Only the team president can update team information"
+                    return@launch
+                }
+
+                // If team name changed, check if new name is available
+                val currentTeam = _currentTeam.value
+                if (currentTeam != null && team.name != currentTeam.name) {
+                    if (!isTeamNameAvailable(team.name)) {
+                        _errorMessage.value = "Team name '${team.name}' is already taken"
+                        return@launch
+                    }
+                }
+
+                // Update team in database
+                val success = database.updateDocument("teams", team.id, team)
+                if (success) {
+                    // Update local state
+                    _currentTeam.value = team
+                    _successMessage.value = "Team information updated successfully"
+                } else {
+                    _errorMessage.value = "Failed to update team information"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error updating team: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     // ----------------- TEAM JOINING ---------------- //

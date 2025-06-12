@@ -68,6 +68,7 @@ import ui.settings.AccountSettingsScreen
 import ui.settings.ChangePasswordScreen
 import ui.settings.SettingsScreen
 import ui.team.CreateTeamScreen
+import ui.team.EditTeamScreen
 import ui.team.TeamScreen
 import ui.tournament.CreateTournamentScreen
 import ui.tournament.EditTournamentScreen
@@ -232,7 +233,13 @@ fun AppNavHost(
                 composable<TournamentManagement> {
                     TournamentManagementScreen(navController)
                 }
-
+                composable<EditTeam> { backStackEntry ->
+                    val args: EditTeam = backStackEntry.toRoute()
+                    EditTeamScreen(
+                        navController = navController,
+                        teamId = args.teamId
+                    )
+                }
                 composable<EditTournament> { backStackEntry ->
                     val args: EditTournament = backStackEntry.toRoute()
                     EditTournamentScreen(

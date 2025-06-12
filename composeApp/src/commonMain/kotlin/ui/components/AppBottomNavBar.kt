@@ -83,9 +83,10 @@ fun AppBottomNavBar(
         ) {
             Surface(
                 tonalElevation = 8.dp,
-                shadowElevation = 8.dp,
+                shadowElevation = 10.dp,
                 shape = RoundedCornerShape(32.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
+                // Using a darker surface color for more contrast and modern look
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
                 Row(
                     Modifier
@@ -96,14 +97,10 @@ fun AppBottomNavBar(
                 ) {
                     bottomNavItems.forEach { item ->
                         val selected = when {
-                            // For Search route specifically, check if currentRoute starts with its qualified name
-                            // Ensure item.route is an instance of Search for this comparison to work as intended
-                            // or compare based on the type if Search() is always passed with default args from bottom nav
                             item.route is Search && currentRoute?.startsWith(Search::class.qualifiedName?.substringBefore("?").toString()) == true -> true
-                            // For other routes, keep the exact match
                             else -> currentRoute == item.route::class.qualifiedName
                         }
-                        
+
                         val animatedSize by animateDpAsState(if (selected) 30.dp else 24.dp)
                         val interactionSource = remember { MutableInteractionSource() }
 
@@ -120,14 +117,18 @@ fun AppBottomNavBar(
                             Icon(
                                 imageVector = item.icon,
                                 contentDescription = item.title,
-                                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                // Increased contrast between selected and unselected items
+                                tint = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 modifier = Modifier.size(animatedSize)
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = item.title,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                // Matching the icon tint logic
+                                color = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         }
                     }

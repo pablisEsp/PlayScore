@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import data.model.Team
 import data.model.TeamRole
+import navigation.EditTeam
 import org.koin.compose.koinInject
 import ui.components.LeaveTeamButton
 import ui.components.LocalNavController
@@ -244,7 +245,10 @@ fun TeamManagementSheet(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Button(
-                            onClick = { /* Navigate to edit team */ },
+                            onClick = {
+                                navController.navigate(EditTeam(team.id))
+                                onDismiss() // Close the sheet when navigating
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Edit Team Information")

@@ -70,3 +70,6 @@ data object ChangePassword
 
 @Serializable
 data object AccountSettings
+
+@Serializable
+data class EditTeam(val teamId: String)
