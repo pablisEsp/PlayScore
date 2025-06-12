@@ -1,10 +1,14 @@
 package ui.tournament
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,13 +23,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,7 +47,10 @@ import data.model.BracketType
 import data.model.MatchStatus
 import data.model.Tournament
 import data.model.TournamentMatch
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import utils.icons.Chevron_left
+import utils.icons.Chevron_right
 import viewmodel.TournamentViewModel
 
 @Composable
@@ -50,6 +65,7 @@ fun TournamentBracketScreen(
     val errorMessage by tournamentViewModel.errorMessage.collectAsState()
     val teamNamesMap by tournamentViewModel.teamNames.collectAsState()
     val userCanReport by tournamentViewModel.userCanReportScore.collectAsState()
+    val scope = rememberCoroutineScope()
 
     // For score reporting dialog
     var showReportDialog by remember { mutableStateOf(false) }
@@ -163,60 +179,226 @@ fun SingleEliminationBracket(
     userCanReport: Boolean,
     onMatchClick: (TournamentMatch) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+
     // Organize matches by round
     val matchesByRound = matches.groupBy { it.round }
     val maxRound = matches.maxOfOrNull { it.round } ?: 0
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        // Title
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Single Elimination Bracket",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+    // Get available rounds
+    val rounds = matchesByRound.keys.sorted()
 
-            // Draw bracket rounds horizontally
-            Row(
+    // Determine the initial page based on match status
+    val initialPage = remember {
+        // Find the first round that has incomplete matches
+        rounds.indexOfFirst { round ->
+            val roundMatches = matchesByRound[round] ?: emptyList()
+            roundMatches.any { it.status != MatchStatus.COMPLETED }
+        }.let { index ->
+            // If all matches are complete or no incomplete match found, show the final round
+            if (index == -1) rounds.size - 1 else index
+        }
+    }
+
+    // State for pager
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { rounds.size }
+    )
+
+    // For round names
+    val getRoundName = { round: Int ->
+        when (round) {
+            maxRound -> "Final"
+            maxRound - 1 -> "Semifinals"
+            maxRound - 2 -> "Quarterfinals"
+            else -> "Round $round"
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Single Elimination Bracket",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (rounds.isEmpty()) {
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(48.dp)
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
             ) {
-                // Render each round of matches
-                for (round in 1..maxRound) {
-                    val roundMatches = matchesByRound[round] ?: emptyList()
+                Text(
+                    text = "No matches available",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            // Tab Row
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                edgePadding = 8.dp,
+                divider = { /* No divider */ },
+                indicator = { tabPositions ->
+                    if (pagerState.currentPage < tabPositions.size) {
+                        TabRowDefaults.Indicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                            height = 3.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            ) {
+                rounds.forEachIndexed { index, round ->
+                    val roundName = getRoundName(round)
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = roundName,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bracket content with horizontal pager for swiping
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f)
+            ) { page ->
+                val selectedRound = rounds.getOrNull(page)
+                if (selectedRound != null) {
+                    val roundMatches = matchesByRound[selectedRound] ?: emptyList()
+
+                    // Main content: matches with connection lines
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(
-                            // Increase spacing in later rounds
-                            (20 * (round - 1) + 16).dp
-                        ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.width(180.dp)
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 8.dp)
                     ) {
+                        // Header showing current round
                         Text(
-                            text = when (round) {
-                                maxRound -> "Final"
-                                maxRound - 1 -> "Semifinals"
-                                maxRound - 2 -> "Quarterfinals"
-                                else -> "Round $round"
-                            },
-                            style = MaterialTheme.typography.titleSmall,
+                            text = getRoundName(selectedRound),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
-                        roundMatches.forEach { match ->
-                            MatchCard(
-                                match = match,
+                        if (roundMatches.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No matches scheduled for this round yet",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            // Display matches with connection lines for the selected round
+                            BracketRoundWithConnections(
+                                roundMatches = roundMatches,
                                 teamNamesMap = teamNamesMap,
                                 userCanReport = userCanReport,
-                                onClick = { onMatchClick(match) }
+                                onMatchClick = onMatchClick,
+                                isLastRound = selectedRound == maxRound,
+                                showNextRoundConnections = selectedRound < maxRound
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BracketRoundWithConnections(
+    roundMatches: List<TournamentMatch>,
+    teamNamesMap: Map<String, String>,
+    userCanReport: Boolean,
+    onMatchClick: (TournamentMatch) -> Unit,
+    isLastRound: Boolean,
+    showNextRoundConnections: Boolean
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(if (showNextRoundConnections) 40.dp else 16.dp)
+    ) {
+        roundMatches.forEachIndexed { index, match ->
+            Box(modifier = Modifier.fillMaxWidth()) {
+                // The match card
+                MatchCard(
+                    match = match,
+                    teamNamesMap = teamNamesMap,
+                    userCanReport = userCanReport,
+                    onClick = { onMatchClick(match) },
+                    compact = false,
+                    isFinal = isLastRound,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+
+                // Draw connection lines to next round
+                if (showNextRoundConnections) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .align(Alignment.BottomCenter)
+                    ) {
+                        val strokeWidth = 2.dp.toPx()
+                        val lineColor = Color.Gray.copy(alpha = 0.6f)
+
+                        // For even-indexed matches, draw lines down and to the right
+                        // For odd-indexed matches, draw lines down and to the left
+                        val isEvenMatch = index % 2 == 0
+                        val startX = size.width / 2
+
+                        // Draw vertical line from match
+                        drawLine(
+                            color = lineColor,
+                            start = Offset(startX, 0f),
+                            end = Offset(startX, size.height / 2),
+                            strokeWidth = strokeWidth
+                        )
+
+                        // If this is an even match, we also draw the horizontal connector
+                        if (isEvenMatch && index < roundMatches.size - 1) {
+                            // Calculate where this connector meets with the next match's line
+                            val nextMatchX = size.width / 2
+                            val midY = size.height / 2
+
+                            // Draw horizontal line
+                            drawLine(
+                                color = lineColor,
+                                start = Offset(startX, midY),
+                                end = Offset(nextMatchX, midY),
+                                strokeWidth = strokeWidth
                             )
                         }
                     }
@@ -411,7 +593,8 @@ fun MatchCard(
     userCanReport: Boolean,
     onClick: () -> Unit,
     compact: Boolean = false,
-    isFinal: Boolean = false
+    isFinal: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     // Get team names or placeholders
     val homeTeamName = if (match.homeTeamId.isEmpty()) "TBD" else
