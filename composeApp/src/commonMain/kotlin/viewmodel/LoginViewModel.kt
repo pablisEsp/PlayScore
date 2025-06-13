@@ -6,7 +6,6 @@ import data.TokenManager
 import firebase.auth.FirebaseAuthInterface
 import firebase.database.FirebaseDatabaseInterface
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -55,8 +54,25 @@ class LoginViewModel(
         viewModelScope.launch {
             try {
                 val authResult = auth.signIn(_email.value, _password.value)
+                // Inside the try block of the login() method
                 if (!authResult.success) {
-                    _loginMessage.value = authResult.errorMessage ?: "Login failed"
+                    _loginMessage.value = when {
+                        authResult.errorMessage?.contains("wrong password", ignoreCase = true) == true ->
+                            "Incorrect password. Please try again."
+                        authResult.errorMessage?.contains("user not found", ignoreCase = true) == true ->
+                            "No account found with this email address."
+                        authResult.errorMessage?.contains("invalid email", ignoreCase = true) == true ||
+                        authResult.errorMessage?.contains("incorrect", ignoreCase = true) == true ||
+                        authResult.errorMessage?.contains("malformed", ignoreCase = true) == true ||
+                        authResult.errorMessage?.contains("auth credential", ignoreCase = true) == true ||
+                        authResult.errorMessage?.contains("recaptcha", ignoreCase = true) == true -> // Added more specific checks
+                            "User not found. Please check and try again."
+                        authResult.errorMessage?.contains("too many attempts", ignoreCase = true) == true ->
+                            "Too many failed attempts. Please try again later."
+                        authResult.errorMessage?.contains("network", ignoreCase = true) == true ->
+                            "Network error. Please check your internet connection."
+                        else -> authResult.errorMessage ?: "Login failed. Please try again."
+                    }
                     _isLoading.value = false
                     return@launch
                 }
@@ -83,15 +99,32 @@ class LoginViewModel(
                     }
 
                     withContext(Dispatchers.IO) {
-                        val token = auth.getIdToken() ?: ""
+                        val token = auth.getIdToken()
                         tokenManager.saveAuthData(token, userData)
                     }
                     _isLoggedIn.value = true
                 } else {
-                    _loginMessage.value = "Failed to load user data"
+                    _loginMessage.value = "Failed to load user data. Please try again."
                 }
             } catch (e: Exception) {
-                _loginMessage.value = "Login error: ${e.message}"
+                // More specific exception handling
+                _loginMessage.value = when {
+                    e.message?.contains("wrong password", ignoreCase = true) == true ->
+                        "Incorrect password. Please try again."
+                    e.message?.contains("user not found", ignoreCase = true) == true ->
+                        "No account found with this email address."
+                    e.message?.contains("invalid email", ignoreCase = true) == true ||
+                            e.message?.contains("incorrect", ignoreCase = true) == true ||
+                            e.message?.contains("malformed", ignoreCase = true) == true ||
+                            e.message?.contains("auth credential", ignoreCase = true) == true ||
+                            e.message?.contains("recaptcha", ignoreCase = true) == true ->
+                        "Invalid email format. Please check and try again."
+                    e.message?.contains("too many attempts", ignoreCase = true) == true ->
+                        "Too many failed attempts. Please try again later."
+                    e.message?.contains("network", ignoreCase = true) == true ->
+                        "Network error. Please check your internet connection."
+                    else -> e.message ?: "Login failed. Please try again."
+                }
             } finally {
                 _isLoading.value = false
             }
