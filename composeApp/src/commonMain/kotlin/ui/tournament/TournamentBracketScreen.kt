@@ -346,11 +346,36 @@ fun BracketRoundWithConnections(
     isLastRound: Boolean,
     showNextRoundConnections: Boolean
 ) {
+    if (roundMatches.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No matches in this round",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        }
+        return
+    }
+
+    // Sort matches by matchNumber to ensure proper order
+    val sortedMatches = roundMatches.sortedBy { it.matchNumber }
+
+    // Calculate vertical spacing based on match count
+    val spacing = if (sortedMatches.size > 3) 40.dp else 60.dp
+
     Column(
-        verticalArrangement = Arrangement.spacedBy(if (showNextRoundConnections) 40.dp else 16.dp)
+        verticalArrangement = Arrangement.spacedBy(if (showNextRoundConnections) spacing else 16.dp)
     ) {
-        roundMatches.forEachIndexed { index, match ->
-            Box(modifier = Modifier.fillMaxWidth()) {
+        sortedMatches.forEachIndexed { index, match ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
                 // The match card
                 MatchCard(
                     match = match,
@@ -363,42 +388,56 @@ fun BracketRoundWithConnections(
                 )
 
                 // Draw connection lines to next round
-                if (showNextRoundConnections) {
+                if (showNextRoundConnections && sortedMatches.size > 1) {
+                    // Draw connections only if we have multiple matches and need to connect them
                     Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
+                            .height(spacing - 8.dp)
                             .align(Alignment.BottomCenter)
                     ) {
                         val strokeWidth = 2.dp.toPx()
                         val lineColor = Color.Gray.copy(alpha = 0.6f)
 
-                        // For even-indexed matches, draw lines down and to the right
-                        // For odd-indexed matches, draw lines down and to the left
+                        // Calculate whether this match connects to the next round
                         val isEvenMatch = index % 2 == 0
+                        val hasPair = isEvenMatch && index < sortedMatches.size - 1
+
                         val startX = size.width / 2
+                        val matchHeight = 80.dp.toPx() // Approximate height of a match card
 
                         // Draw vertical line from match
                         drawLine(
                             color = lineColor,
                             start = Offset(startX, 0f),
-                            end = Offset(startX, size.height / 2),
+                            end = Offset(startX, if (hasPair) size.height / 2 else size.height),
                             strokeWidth = strokeWidth
                         )
 
-                        // If this is an even match, we also draw the horizontal connector
-                        if (isEvenMatch && index < roundMatches.size - 1) {
-                            // Calculate where this connector meets with the next match's line
-                            val nextMatchX = size.width / 2
+                        // For even matches that have a pair (odd match following),
+                        // draw horizontal connector to the next match
+                        if (hasPair) {
                             val midY = size.height / 2
+                            val nextMatchX = size.width / 2
 
-                            // Draw horizontal line
+                            // Draw horizontal line connecting to the next match's line
                             drawLine(
                                 color = lineColor,
                                 start = Offset(startX, midY),
                                 end = Offset(nextMatchX, midY),
                                 strokeWidth = strokeWidth
                             )
+
+                            // Draw vertical line from horizontal connector to bottom
+                            // (This will connect to the next round)
+                            if (index == 0 || index % 2 == 0) {
+                                drawLine(
+                                    color = lineColor,
+                                    start = Offset((startX + nextMatchX) / 2, midY),
+                                    end = Offset((startX + nextMatchX) / 2, size.height),
+                                    strokeWidth = strokeWidth
+                                )
+                            }
                         }
                     }
                 }
@@ -415,16 +454,25 @@ fun DoubleEliminationBracket(
     userCanReport: Boolean,
     onMatchClick: (TournamentMatch) -> Unit
 ) {
-    // Group matches by specific bracket sections
+    val scope = rememberCoroutineScope()
+
+    // Group matches by bracket section
     val winnersMatches = matches.filter { it.id.contains("-W-") }
     val losersMatches = matches.filter { it.id.contains("-L-") }
     val finalMatches = matches.filter { it.id.contains("-F-") }
+
+    // Group by round within each bracket
+    val winnersMatchesByRound = winnersMatches.groupBy { it.round }.toSortedMap()
+    val losersMatchesByRound = losersMatches.groupBy { it.round }.toSortedMap()
+
+    // For tabs
+    val sections = listOf("Winners Bracket", "Losers Bracket", "Finals")
+    val pagerState = rememberPagerState(initialPage = 0) { sections.size }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState())
     ) {
         Text(
             text = "Double Elimination Bracket",
@@ -433,94 +481,245 @@ fun DoubleEliminationBracket(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Winners bracket section
-        Text(
-            text = "Winners Bracket",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-        BracketSection(
-            matches = winnersMatches,
-            teamNamesMap = teamNamesMap,
-            userCanReport = userCanReport,
-            onMatchClick = onMatchClick
-        )
+        // Tab row for different sections
+        ScrollableTabRow(
+            selectedTabIndex = pagerState.currentPage,
+            edgePadding = 8.dp,
+            divider = { /* No divider */ },
+            indicator = { tabPositions ->
+                if (pagerState.currentPage < tabPositions.size) {
+                    SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                        height = 3.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        ) {
+            sections.forEachIndexed { index, title ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = {
+                        scope.launch {
+                            pagerState.animateScrollToPage(index)
+                        }
+                    },
+                    text = {
+                        Text(
+                            text = title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                )
+            }
+        }
 
-        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Losers bracket section
-        Text(
-            text = "Losers Bracket",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.tertiary,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-        BracketSection(
-            matches = losersMatches,
-            teamNamesMap = teamNamesMap,
-            userCanReport = userCanReport,
-            onMatchClick = onMatchClick
-        )
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-        // Finals section
-        if (finalMatches.isNotEmpty()) {
-            Text(
-                text = "Finals",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            finalMatches.forEach { match ->
-                MatchCard(
-                    match = match,
+        // Content for each tab
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.weight(1f)
+        ) { page ->
+            when (page) {
+                0 -> WinnersBracketSection(
+                    matchesByRound = winnersMatchesByRound,
                     teamNamesMap = teamNamesMap,
                     userCanReport = userCanReport,
-                    onClick = { onMatchClick(match) },
-                    isFinal = true
+                    onMatchClick = onMatchClick
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                1 -> LosersBracketSection(
+                    matchesByRound = losersMatchesByRound,
+                    teamNamesMap = teamNamesMap,
+                    userCanReport = userCanReport,
+                    onMatchClick = onMatchClick
+                )
+                2 -> FinalsSection(
+                    matches = finalMatches,
+                    teamNamesMap = teamNamesMap,
+                    userCanReport = userCanReport,
+                    onMatchClick = onMatchClick
+                )
             }
         }
     }
 }
 
 @Composable
-fun BracketSection(
+fun WinnersBracketSection(
+    matchesByRound: Map<Int, List<TournamentMatch>>,
+    teamNamesMap: Map<String, String>,
+    userCanReport: Boolean,
+    onMatchClick: (TournamentMatch) -> Unit
+) {
+    if (matchesByRound.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No matches in winners bracket")
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+    ) {
+        matchesByRound.forEach { (round, roundMatches) ->
+            Text(
+                text = when (round) {
+                    matchesByRound.keys.max() -> "Winners Final"
+                    matchesByRound.keys.max() - 1 -> "Winners Semifinal"
+                    else -> "Winners Round $round"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            BracketRoundWithConnections(
+                roundMatches = roundMatches,
+                teamNamesMap = teamNamesMap,
+                userCanReport = userCanReport,
+                onMatchClick = onMatchClick,
+                isLastRound = round == matchesByRound.keys.max(),
+                showNextRoundConnections = round < matchesByRound.keys.max()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+fun LosersBracketSection(
+    matchesByRound: Map<Int, List<TournamentMatch>>,
+    teamNamesMap: Map<String, String>,
+    userCanReport: Boolean,
+    onMatchClick: (TournamentMatch) -> Unit
+) {
+    if (matchesByRound.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No matches in losers bracket")
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+    ) {
+        matchesByRound.forEach { (round, roundMatches) ->
+            Text(
+                text = when (round) {
+                    matchesByRound.keys.max() -> "Losers Final"
+                    matchesByRound.keys.max() - 1 -> "Losers Semifinal"
+                    else -> "Losers Round $round"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            BracketRoundWithConnections(
+                roundMatches = roundMatches,
+                teamNamesMap = teamNamesMap,
+                userCanReport = userCanReport,
+                onMatchClick = onMatchClick,
+                isLastRound = round == matchesByRound.keys.max(),
+                showNextRoundConnections = round < matchesByRound.keys.max()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+fun FinalsSection(
     matches: List<TournamentMatch>,
     teamNamesMap: Map<String, String>,
     userCanReport: Boolean,
     onMatchClick: (TournamentMatch) -> Unit
 ) {
-    val matchesByRound = matches.groupBy { it.round }
-    val rounds = matchesByRound.keys.sorted()
+    if (matches.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No final matches scheduled yet")
+        }
+        return
+    }
 
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.height((matches.size * 80 + 32).dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
     ) {
-        rounds.forEach { round ->
-            val roundMatches = matchesByRound[round] ?: emptyList()
-            item {
+        matches.sortedBy { it.matchNumber }.forEachIndexed { index, match ->
+            if (index == 0) {
                 Text(
-                    text = "Round $round",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                    text = "Grand Final",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    roundMatches.forEach { match ->
-                        MatchCard(
-                            match = match,
-                            teamNamesMap = teamNamesMap,
-                            userCanReport = userCanReport,
-                            onClick = { onMatchClick(match) }
-                        )
-                    }
-                }
+            } else {
+                Text(
+                    text = "Reset Match (if needed)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Text(
+                    text = "Played if winners bracket finalist loses first match",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            // Display the match with a special highlight for finals
+            MatchCard(
+                match = match,
+                teamNamesMap = teamNamesMap,
+                userCanReport = userCanReport,
+                onClick = { onMatchClick(match) },
+                isFinal = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Add explanation text
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Double Elimination Format",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "• Teams from winners bracket have an advantage in finals\n" +
+                           "• Teams must lose twice to be eliminated\n" +
+                           "• In finals, team from losers bracket must win twice to be champion"
+                )
             }
         }
     }

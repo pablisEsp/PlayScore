@@ -252,10 +252,24 @@ class AdminViewModel(
                 // Create dummy teams and add them to the tournament
                 val teamsToAdd = mutableListOf<String>()
 
+                // Demo team names we can use
+                val demoTeamNames = listOf(
+                    "Red Dragons", "Blue Knights", "Green Giants", "Yellow Tigers",
+                    "Purple Phoenix", "Black Panthers", "White Eagles", "Orange Wolves",
+                    "Silver Sharks", "Golden Lions", "Crimson Falcons", "Emerald Vipers"
+                )
+
                 for (i in 1..teamsToCreate) {
+                    // Use a name from our list if available, otherwise use a generic name
+                    val teamName = if (i <= demoTeamNames.size) {
+                        demoTeamNames[i-1]
+                    } else {
+                        "Demo Team ${existingTeamsCount + i}"
+                    }
+
                     // Create a team with minimal data
                     val team = data.model.Team(
-                        name = "Demo Team ${existingTeamsCount + i}",
+                        name = teamName,
                         presidentId = "admin-${Clock.System.now()}-$i", // Dummy ID
                         playerIds = List(5) { "dummyPlayer-${Clock.System.now()}-$i-$it" } // 5 dummy players
                     )

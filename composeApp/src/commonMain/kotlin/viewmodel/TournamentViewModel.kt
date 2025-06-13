@@ -3,6 +3,7 @@ package viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import data.model.ApplicationStatus
+import data.model.BracketType
 import data.model.MatchStatus
 import data.model.Team
 import data.model.TeamApplication
@@ -710,7 +711,38 @@ class TournamentViewModel(
         return start1 <= end2 && start2 <= end1
     }
 
-    // Load tournament matches
+    // Add this function to the TournamentViewModel to get double elimination matches properly grouped
+    fun getDoubleEliminationMatchGroups(matches: List<TournamentMatch>): Map<String, List<TournamentMatch>> {
+        // Group matches by bracket section using their IDs
+        val winnersMatches = matches.filter { it.id.contains("-W-") }
+        val losersMatches = matches.filter { it.id.contains("-L-") }
+        val finalMatches = matches.filter { it.id.contains("-F-") }
+
+        // If we don't find any properly labeled matches, try to infer from the structure
+        if (winnersMatches.isEmpty() && losersMatches.isEmpty() && finalMatches.isEmpty()) {
+            // In double elimination, losers matches typically have odd round numbers
+            // while winners matches have even round numbers, with finals at the highest round
+            val allRounds = matches.map { it.round }.distinct().sorted()
+
+            if (allRounds.size > 2) {
+                val maxRound = allRounds.maxOrNull() ?: 0
+
+                return mapOf(
+                    "winners" to matches.filter { it.round < maxRound && it.round % 2 == 0 },
+                    "losers" to matches.filter { it.round < maxRound && it.round % 2 != 0 },
+                    "finals" to matches.filter { it.round == maxRound }
+                )
+            }
+        }
+
+        return mapOf(
+            "winners" to winnersMatches,
+            "losers" to losersMatches,
+            "finals" to finalMatches
+        )
+    }
+
+    // Update the loadTournamentMatches function to log information about matches
     fun loadTournamentMatches(tournamentId: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -721,7 +753,24 @@ class TournamentViewModel(
                     tournamentId,
                     serializer = kotlinx.serialization.builtins.ListSerializer(TournamentMatch.serializer())
                 )
+
+                // Log the number of matches found for debugging
+                println("Found ${matches.size} matches for tournament $tournamentId")
+                matches.forEach { match ->
+                    println("Match ID: ${match.id}, Round: ${match.round}, Teams: ${match.homeTeamId} vs ${match.awayTeamId}")
+                }
+
                 _tournamentMatches.value = matches
+
+                // Check if this is a double elimination tournament
+                val tournament = _currentTournament.value
+                if (tournament?.bracketType == BracketType.DOUBLE_ELIMINATION) {
+                    val groupedMatches = getDoubleEliminationMatchGroups(matches)
+                    println("Double elimination matches: " +
+                            "Winners: ${groupedMatches["winners"]?.size}, " +
+                            "Losers: ${groupedMatches["losers"]?.size}, " +
+                            "Finals: ${groupedMatches["finals"]?.size}")
+                }
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to load tournament matches: ${e.message}"
             } finally {

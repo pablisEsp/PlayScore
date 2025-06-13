@@ -283,19 +283,23 @@ private fun TournamentCard(
         )
     }
 
-    // Populate teams confirmation dialog
     if (showPopulateTeamsConfirmation) {
         AlertDialog(
             onDismissRequest = { showPopulateTeamsConfirmation = false },
             title = { Text("Add Demo Teams") },
             text = {
                 Column {
-                    Text("This will add 6 demo teams to the tournament for testing purposes.")
+                    val availableSlots = tournament.maxTeams - tournament.teamIds.size
+                    Text("This will add demo teams to fill the tournament.")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Current team count: ${tournament.teamIds.size}/${tournament.maxTeams}")
-                    if ((tournament.teamIds.size + 6) > tournament.maxTeams) {
-                        Text("Warning: This will exceed the maximum team limit!",
+                    Text("Available slots: $availableSlots")
+
+                    if (availableSlots == 0) {
+                        Text("Tournament is already at maximum capacity!",
                             color = MaterialTheme.colorScheme.error)
+                    } else {
+                        Text("This will add $availableSlots demo team${if (availableSlots > 1) "s" else ""} to the tournament.")
                     }
                 }
             },
@@ -304,7 +308,8 @@ private fun TournamentCard(
                     onClick = {
                         onPopulateTeams()
                         showPopulateTeamsConfirmation = false
-                    }
+                    },
+                    enabled = tournament.teamIds.size < tournament.maxTeams
                 ) {
                     Text("Add Demo Teams")
                 }

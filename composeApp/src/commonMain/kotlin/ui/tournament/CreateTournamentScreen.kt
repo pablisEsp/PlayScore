@@ -196,7 +196,7 @@ fun CreateTournamentScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text("Tournament Format")
+            /*Text("Tournament Format")
             Column {
                 BracketType.entries.forEach { bracketType ->
                     Row(
@@ -216,7 +216,7 @@ fun CreateTournamentScreen(
                         )
                     }
                 }
-            }
+            }*/
 
             Spacer(modifier = Modifier.height(16.dp))
 

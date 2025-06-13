@@ -37,6 +37,7 @@ fun CreateTeamScreen(
 ) {
     var teamName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
     val isLoading by teamViewModel.isLoading.collectAsState()
     val errorMessage by teamViewModel.errorMessage.collectAsState()
     val teamCreationResult by teamViewModel.teamCreationResult.collectAsState()
@@ -98,11 +99,6 @@ fun CreateTeamScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                "Create Your Team",
-                style = MaterialTheme.typography.headlineMedium
-            )
-
             OutlinedTextField(
                 value = teamName,
                 onValueChange = { teamName = it },
@@ -119,9 +115,17 @@ fun CreateTeamScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = location,
+                onValueChange = { location = it },
+                label = { Text("Location (Optional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Button(
                 onClick = {
-                    teamViewModel.createTeam(teamName.trim(), description.trim())
+                    teamViewModel.createTeam(teamName.trim(), description.trim(), location.trim())
                 },
                 enabled = teamName.trim().isNotBlank() && !isLoading,
                 modifier = Modifier.fillMaxWidth()

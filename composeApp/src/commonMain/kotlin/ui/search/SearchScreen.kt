@@ -169,7 +169,7 @@ fun TeamSearchItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                navController.navigate("navigation.TeamManagement/${team.id}")
+                //navController.navigate()
             },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)

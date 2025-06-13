@@ -88,7 +88,7 @@ class TeamViewModel(
         }
     }
 
-    fun createTeam(teamName: String, description: String = "") {
+    fun createTeam(teamName: String, description: String = "", location: String = "") {
         _isLoading.value = true
         _teamCreationResult.value = null
         _isTeamCreationComplete.value = false
@@ -111,6 +111,7 @@ class TeamViewModel(
                 val newTeam = Team(
                     name = teamName,
                     description = description,
+                    location = location,
                     presidentId = currentUserId,
                     playerIds = listOf(currentUserId),
                     createdAt = Clock.System.now().toString()
