@@ -81,7 +81,6 @@ class PostViewModel(
 
     fun likePost(postId: String) {
         viewModelScope.launch {
-            _isLoading.value = true
             try {
                 val user = getCurrentUser()
                 val result = likeRepository.toggleLike(user.id, postId)
@@ -121,8 +120,6 @@ class PostViewModel(
                 }
             } catch (e: Exception) {
                 println("Error liking post: ${e.message}")
-            } finally {
-                _isLoading.value = false // Reset loading state
             }
         }
     }
