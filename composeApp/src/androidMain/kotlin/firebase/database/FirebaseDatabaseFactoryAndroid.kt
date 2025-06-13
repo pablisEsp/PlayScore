@@ -418,7 +418,10 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                                 "DOUBLE_ELIMINATION" -> BracketType.DOUBLE_ELIMINATION
                                 "ROUND_ROBIN" -> BracketType.ROUND_ROBIN
                                 else -> BracketType.SINGLE_ELIMINATION
-                            }
+                            },
+                            winnerId = valueMap["winnerId"] as? String ?: "",
+                            completedDate = valueMap["completedDate"] as? String ?: ""
+
                         )
                     }
                     if (tournament != null) items.add(tournament as T)
@@ -654,6 +657,9 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                         val maxTeams = snapshot.child("maxTeams").getValue(Int::class.java) ?: 8
                         val bracketTypeStr = snapshot.child("bracketType").getValue(String::class.java) ?: "SINGLE_ELIMINATION"
                         val teamIds = snapshot.child("teamIds").getValue(object : GenericTypeIndicator<List<String>>() {}) ?: emptyList()
+                        val winnerId = snapshot.child("winnerId").getValue(String::class.java) ?: ""
+                        val completedDate = snapshot.child("completedDate").getValue(String::class.java) ?: ""
+
 
                         val tournament = Tournament(
                             id = id,
@@ -666,7 +672,10 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             status = TournamentStatus.valueOf(statusStr),
                             teamIds = teamIds,
                             maxTeams = maxTeams,
-                            bracketType = BracketType.valueOf(bracketTypeStr)
+                            bracketType = BracketType.valueOf(bracketTypeStr),
+                            winnerId = winnerId,
+                            completedDate = completedDate
+
                         ) as T
                         continuation.resume(tournament)
                     }
@@ -842,7 +851,9 @@ class FirebaseDatabaseAndroid : FirebaseDatabaseInterface {
                             "DOUBLE_ELIMINATION" -> data.model.BracketType.DOUBLE_ELIMINATION
                             "ROUND_ROBIN" -> data.model.BracketType.ROUND_ROBIN
                             else -> data.model.BracketType.SINGLE_ELIMINATION
-                        }
+                        },
+                        winnerId = map["winnerId"] as? String ?: "",
+                        completedDate = map["completedDate"] as? String ?: ""
                     ) as T
                 }
 

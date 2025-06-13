@@ -14,7 +14,10 @@ data class Tournament(
     val status: TournamentStatus = TournamentStatus.UPCOMING,
     val teamIds: List<String> = emptyList(),
     val maxTeams: Int = 8,
-    val bracketType: BracketType = BracketType.SINGLE_ELIMINATION
+    val bracketType: BracketType = BracketType.SINGLE_ELIMINATION,
+    val winnerId: String = "",
+    val completedDate: String = ""
+
 )
 
 @Serializable

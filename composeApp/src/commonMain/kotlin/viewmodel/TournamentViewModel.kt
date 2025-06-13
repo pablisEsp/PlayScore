@@ -124,6 +124,222 @@ class TournamentViewModel(
         }
     }
 
+    // Helper method to update team statistics
+    private suspend fun updateTeamStats(teamId: String, isWin: Boolean, isTie: Boolean, pointsToAdd: Int) {
+        // Get current team data
+        val team = database.getDocument<Team>("teams/$teamId") ?: return
+
+        // Calculate new stats
+        val newWins = team.totalWins + if (isWin) 1 else 0
+        val newLosses = team.totalLosses + if (!isWin && !isTie) 1 else 0
+        val newPoints = team.pointsTotal + pointsToAdd
+
+        // Update team in database
+        database.updateFields(
+            "teams",
+            teamId,
+            mapOf(
+                "totalWins" to newWins,
+                "totalLosses" to newLosses,
+                "pointsTotal" to newPoints
+            )
+        )
+    }
+
+    // Calculate points based on match result (can be customized based on tournament rules)
+    private fun calculatePoints(isWin: Boolean, isTie: Boolean): Int {
+        return when {
+            isWin -> 3  // Win = 3 points
+            isTie -> 1  // Tie = 1 point
+            else -> 0   // Loss = 0 points
+        }
+    }
+
+    // Complete the checkTournamentCompletion function in TournamentViewModel
+    fun checkTournamentCompletion(tournamentId: String) {
+        viewModelScope.launch {
+            try {
+                // Get all matches for this tournament
+                val matches = _tournamentMatches.value.ifEmpty {
+                    // Load matches if not already loaded
+                    database.getCollectionFiltered<TournamentMatch>(
+                        "tournamentMatches",
+                        "tournamentId",
+                        tournamentId,
+                        serializer = ListSerializer(TournamentMatch.serializer())
+                    )
+                }
+
+                // Get the tournament
+                val tournament = _currentTournament.value ?:
+                    database.getDocument<Tournament>("tournaments/$tournamentId")
+
+                // Find the final match (highest round, usually only one match)
+                val maxRound = matches.maxOfOrNull { it.round } ?: return@launch
+                val finalMatches = matches.filter { it.round == maxRound }
+
+                // For single elimination, there should be exactly one final match
+                val finalMatch = finalMatches.firstOrNull() ?: return@launch
+
+                // If the final match is completed and has a winner
+                if (finalMatch.status == MatchStatus.COMPLETED && finalMatch.winnerId.isNotEmpty()) {
+                    // Update tournament as completed with winner
+                    val currentDate = Clock.System.now().toString().substringBefore(".")
+
+                    database.updateFields(
+                        "tournaments",
+                        tournamentId,
+                        mapOf(
+                            "status" to TournamentStatus.COMPLETED.toString(),
+                            "winnerId" to finalMatch.winnerId,
+                            "completedDate" to currentDate
+                        )
+                    )
+
+                    // Update local tournament data
+                    _currentTournament.update { tournament ->
+                        tournament?.copy(
+                            status = TournamentStatus.COMPLETED,
+                            winnerId = finalMatch.winnerId,
+                            completedDate = currentDate
+                        )
+                    }
+
+                    _successMessage.value = "Tournament completed! Winner determined."
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error checking tournament completion: ${e.message}"
+            }
+        }
+    }
+
+    // Modify advanceTeamToNextPhase to check for tournament completion
+    fun advanceTeamToNextPhase(match: TournamentMatch) {
+        viewModelScope.launch {
+            try {
+                // Only proceed if match is completed and has scores
+                if (match.status != MatchStatus.COMPLETED || match.homeScore == null || match.awayScore == null) {
+                    return@launch
+                }
+
+                // Determine the winner of this match
+                val winningTeamId = if (match.homeScore > match.awayScore) {
+                    match.homeTeamId
+                } else if (match.homeScore < match.awayScore) {
+                    match.awayTeamId
+                } else {
+                    // In case of a tie, implement your tiebreaker rule
+                    // For now, default to home team
+                    match.homeTeamId
+                }
+
+                // Calculate the next phase details
+                val nextPhase = match.round + 1
+                val nextMatchNumber = (match.matchNumber + 1) / 2
+
+                // Find the next match this winner should advance to
+                val nextPhaseMatch = _tournamentMatches.value.find {
+                    it.round == nextPhase && it.matchNumber == nextMatchNumber
+                }
+
+                if (nextPhaseMatch == null) {
+                    // No next match means this might be the final match
+                    // Update the current match with the winner and check if tournament is complete
+                    database.updateFields(
+                        "tournamentMatches",
+                        match.id,
+                        mapOf("winnerId" to winningTeamId)
+                    )
+
+                    // Check if this was the final match, and if so, complete the tournament
+                    checkTournamentCompletion(match.tournamentId)
+                    return@launch
+                }
+
+                // Determine if winner goes to home or away position
+                // Odd-numbered matches fill home team slots, even-numbered matches fill away slots
+                val updatedFields = if (match.matchNumber % 2 != 0) {
+                    mapOf("homeTeamId" to winningTeamId)
+                } else {
+                    mapOf("awayTeamId" to winningTeamId)
+                }
+
+                // Also store the winner ID in the current match
+                database.updateFields(
+                    "tournamentMatches",
+                    match.id,
+                    mapOf("winnerId" to winningTeamId)
+                )
+
+                // Update the next phase match with the winner
+                database.updateFields(
+                    "tournamentMatches",
+                    nextPhaseMatch.id,
+                    updatedFields
+                )
+
+                // Refresh tournament matches to show the update
+                _currentTournament.value?.id?.let { tournamentId ->
+                    loadTournamentMatches(tournamentId)
+                }
+
+            } catch (e: Exception) {
+                _errorMessage.value = "Error advancing team: ${e.message}"
+            }
+        }
+    }
+
+    // Modify your finalizeMatchResult method to call advanceTeamToNextPhase
+    fun finalizeMatchResult(match: TournamentMatch) {
+        viewModelScope.launch {
+            try {
+                // Only process if both teams have confirmed the same score
+                if (match.homeTeamConfirmed && match.awayTeamConfirmed &&
+                    match.homeScore != null && match.awayScore != null &&
+                    match.status == MatchStatus.IN_PROGRESS) {
+
+                    // Determine winner and loser
+                    val homeTeamWon = match.homeScore > match.awayScore
+                    val isTie = match.homeScore == match.awayScore
+
+                    // Update home team stats
+                    updateTeamStats(
+                        teamId = match.homeTeamId,
+                        isWin = homeTeamWon,
+                        isTie = isTie,
+                        pointsToAdd = calculatePoints(homeTeamWon, isTie)
+                    )
+
+                    // Update away team stats
+                    updateTeamStats(
+                        teamId = match.awayTeamId,
+                        isWin = !homeTeamWon,
+                        isTie = isTie,
+                        pointsToAdd = calculatePoints(!homeTeamWon, isTie)
+                    )
+
+                    // Update match status to COMPLETED
+                    database.updateFields(
+                        "tournamentMatches",
+                        match.id,
+                        mapOf("status" to MatchStatus.COMPLETED)
+                    )
+
+                    // If not a tie, advance the winning team to the next phase
+                    if (!isTie) {
+                        // Pass a copy of the match with updated status
+                        advanceTeamToNextPhase(match.copy(status = MatchStatus.COMPLETED))
+                    } else {
+                        // Handle tie scenario based on tournament rules
+                        _errorMessage.value = "Match ended in a tie. Please consult tournament rules for tiebreaker."
+                    }
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error finalizing match: ${e.message}"
+            }
+        }
+    }
+
     // Load available tournaments - tournaments with open registration that the team has not already joined
     fun loadAvailableTournaments(teamId: String) {
         viewModelScope.launch {
@@ -164,6 +380,7 @@ class TournamentViewModel(
         }
     }
 
+    // Modify the reportMatchScore method in TournamentViewModel to call finalizeMatchResult
     fun reportMatchScore(matchId: String, homeScore: Int, awayScore: Int) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -240,6 +457,15 @@ class TournamentViewModel(
                     // 9. Refresh match data to show updated status
                     _currentTournament.value?.id?.let { tournamentId ->
                         loadTournamentMatches(tournamentId)
+                    }
+
+                    // 10. Get the updated match to check if both teams have confirmed
+                    val updatedMatch = tournamentRepository.getMatchById(matchId)
+
+                    // 11. If both teams have confirmed, finalize the match result
+                    if (updatedMatch != null && updatedMatch.homeTeamConfirmed && updatedMatch.awayTeamConfirmed) {
+                        finalizeMatchResult(updatedMatch)
+                        _successMessage.value = "Score confirmed by both teams. Match completed!"
                     }
                 } else {
                     _errorMessage.value = "Failed to report score"

@@ -615,6 +615,11 @@ fun MatchCard(
         Modifier.width(if (compact) 280.dp else 180.dp)
     }
 
+    // Determine if this match has a winner
+    val hasWinner = match.status == MatchStatus.COMPLETED && match.winnerId.isNotEmpty()
+    val homeTeamIsWinner = hasWinner && match.winnerId == match.homeTeamId
+    val awayTeamIsWinner = hasWinner && match.winnerId == match.awayTeamId
+
     Card(
         onClick = onClick,
         modifier = cardModifier,
@@ -650,15 +655,33 @@ fun MatchCard(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Text(
-                        text = homeTeamName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (match.homeTeamScore > match.awayTeamScore &&
-                                          match.status == MatchStatus.COMPLETED)
-                                     FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Trophy icon for winner
+                        if (homeTeamIsWinner) {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .background(MaterialTheme.colorScheme.secondary, CircleShape)
+                                    .padding(2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "🏆",
+                                    fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+
+                        Text(
+                            text = homeTeamName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (homeTeamIsWinner) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 // Scores
@@ -682,16 +705,34 @@ fun MatchCard(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text(
-                        text = awayTeamName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (match.awayTeamScore > match.homeTeamScore &&
-                                          match.status == MatchStatus.COMPLETED)
-                                     FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.End
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = awayTeamName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (awayTeamIsWinner) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.End
+                        )
+
+                        // Trophy icon for winner
+                        if (awayTeamIsWinner) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .background(MaterialTheme.colorScheme.secondary, CircleShape)
+                                    .padding(2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "🏆",
+                                    fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

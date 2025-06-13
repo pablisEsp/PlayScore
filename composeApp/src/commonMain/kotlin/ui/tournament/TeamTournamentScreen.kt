@@ -1,8 +1,11 @@
 package ui.tournament
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
@@ -17,6 +20,7 @@ import data.model.ApplicationStatus
 import data.model.TeamRole
 import data.model.TeamApplication
 import data.model.Tournament
+import data.model.TournamentStatus
 import navigation.TeamTournamentDetail
 import org.koin.compose.koinInject
 import viewmodel.TeamViewModel
@@ -145,7 +149,9 @@ fun TeamTournamentScreen(
                                             tournament = tournament,
                                             onClick = {
                                                 navController.navigate(TeamTournamentDetail(tournamentId = tournament.id))
-                                            }
+                                            },
+                                            currentTeamId = currentTeam?.id
+
                                         )
                                     }
                                 } else {
@@ -321,12 +327,18 @@ private fun NoTeamViewInTournamentScreen() {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TournamentItem(
     tournament: Tournament,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    currentTeamId: String? = null
+
 ) {
+    val isWinner = tournament.status == TournamentStatus.COMPLETED &&
+            tournament.winnerId == currentTeamId
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick
@@ -334,10 +346,47 @@ private fun TournamentItem(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = tournament.name,
-                style = MaterialTheme.typography.titleMedium
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Show trophy for tournaments the team has won
+                if (isWinner) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(MaterialTheme.colorScheme.secondary, CircleShape)
+                            .padding(4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "🏆",
+                            fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                Text(
+                    text = tournament.name,
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                // Add champion tag if winner
+                if (isWinner) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Champion",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.secondaryContainer,
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Status: ${tournament.status.name.replace('_', ' ')}",

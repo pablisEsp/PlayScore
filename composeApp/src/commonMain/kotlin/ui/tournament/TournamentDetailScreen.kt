@@ -45,6 +45,8 @@ fun TournamentDetailScreen(
     val teamApplication by tournamentViewModel.teamApplication.collectAsState()
     val successMessage by tournamentViewModel.successMessage.collectAsState()
 
+    val teamNames by tournamentViewModel.teamNames.collectAsState()
+
     val refreshKey = rememberSaveable { mutableStateOf(0) }
 
     LaunchedEffect(navController) {
@@ -53,6 +55,11 @@ fun TournamentDetailScreen(
         if (previousEntry?.destination?.route?.contains("applications") == true) {
             refreshKey.value++
         }
+    }
+
+    // Load team names when the screen loads
+    LaunchedEffect(tournamentId) {
+        tournamentViewModel.loadTeamNames(tournamentId)
     }
 
     // Use the ViewModel's method to load tournament data
@@ -132,6 +139,7 @@ fun TournamentDetailScreen(
                         },
                         currentTeam = currentTeamFromState,
                         navController = navController,
+                        teamNamesMap = teamNames
                     )
                 }
             }
@@ -150,7 +158,8 @@ fun TournamentDetails(
     onWithdrawClick: () -> Unit,
     currentTeam: Team?,
     modifier: Modifier = Modifier,
-    navController: NavController
+    navController: NavController,
+    teamNamesMap: Map<String, String> = emptyMap()
 ) {
     Box(modifier = Modifier.fillMaxSize()) { // Outer Box to hold content and dialog
         // Single scrollable Column for all content
@@ -195,6 +204,44 @@ fun TournamentDetails(
                         Text("Description", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(tournament.description, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+
+            // Show winner card for completed tournaments
+            if (tournament.status == TournamentStatus.COMPLETED && tournament.winnerId.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Tournament Winner",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val winnerName = if (tournament.winnerId.isNotEmpty()) {
+                            teamNamesMap[tournament.winnerId] ?: "Team ${tournament.winnerId.takeLast(4)}"
+                        } else {
+                            "Not determined yet"
+                        }
+                        Text(
+                            winnerName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+
+                        Text(
+                            "Completed on: ${formatDate(tournament.completedDate)}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
