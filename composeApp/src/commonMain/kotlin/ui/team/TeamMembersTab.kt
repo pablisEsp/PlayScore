@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import data.model.Team
@@ -22,34 +23,35 @@ fun TeamMembersTab(
     val refreshTrigger by viewModel.refreshTrigger.collectAsState()
     val currentTeam by viewModel.currentTeam.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val teamMembers by viewModel.teamMembers.collectAsState()
 
-    // Initial setup
+    // Explicitly create a derived state that will change when team members change
+    val memberCount = remember(currentTeam) { currentTeam?.playerIds?.size ?: 0 }
+
+    // Initial setup only once
     LaunchedEffect(Unit) {
         viewModel.setCurrentTeam(team)
         viewModel.getCurrentUserData()
     }
 
-    // This will properly refresh when team changes or refresh is triggered
-    LaunchedEffect(team.id, refreshTrigger) {
+    // IMPORTANT: Force re-fetching of team data on EVERY refresh trigger change
+    LaunchedEffect(refreshTrigger) {
+        println("DEBUG: Refresh trigger changed: $refreshTrigger")
         viewModel.getTeamById(team.id)
     }
 
-    // Watch for currentTeam updates and reload members when it changes
-    LaunchedEffect(currentTeam) {
-        currentTeam?.let { freshTeam ->
-            viewModel.loadTeamMembers(freshTeam)
-            // Also load join requests if the current user is a leader
-            currentUser?.id?.let { userId ->
-                if (freshTeam.presidentId == userId || freshTeam.vicePresidentId == userId) {
-                    viewModel.loadTeamJoinRequests()
-                }
-            }
-        }
+    // Watch teamMembers state changes to detect when data is refreshed
+    LaunchedEffect(teamMembers) {
+        println("DEBUG: Team members state changed")
+        // No action needed - just forcing recomposition
     }
 
     // Use currentTeam if available, otherwise fall back to the passed team
     val activeTeam = currentTeam ?: team
     val currentUserId = currentUser?.id
+
+    // Debug to verify props
+    println("DEBUG: TeamMembersTab rendering with team ${activeTeam.id}, ${activeTeam.playerIds.size} members, refresh=$refreshTrigger")
 
     Column(
         modifier = Modifier
@@ -69,7 +71,7 @@ fun TeamMembersTab(
             }
         }
 
-        TeamMembers(activeTeam)
+        TeamMembers(team = activeTeam, viewModel = viewModel)
         // Leave Team button and associated dialogs have been removed.
     }
 }

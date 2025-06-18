@@ -178,7 +178,7 @@ class RegisterViewModel(
         }
     }
 
-    // Add this helper function to validate email format
+    // Helper function to validate email format
     private fun isValidEmail(email: String): Boolean {
         val pattern = Regex(
             "[a-zA-Z0-9+._%\\-]{1,256}" +

@@ -426,82 +426,83 @@ class TeamViewModel(
         }
     }
 
-    fun kickUser(user: User, team: Team) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val currentUserId = auth.getCurrentUser()?.uid
+   fun kickUser(user: User, team: Team) {
+       viewModelScope.launch {
+           _isLoading.value = true
+           try {
+               val currentUserId = auth.getCurrentUser()?.uid
 
-                println("DEBUG: Starting kick operation for user ${user.id}")
-                println("DEBUG: Using team: ${team.id}")
+               println("DEBUG: Starting kick operation for user ${user.id}")
+               println("DEBUG: Using team: ${team.id}")
 
-                if (currentUserId == null) {
-                    _errorMessage.value = "Missing data to kick user"
-                    return@launch
-                }
+               if (currentUserId == null) {
+                   _errorMessage.value = "Missing data to kick user"
+                   return@launch
+               }
 
-                // Set the current team before proceeding
-                _currentTeam.value = team
+               // Create updated team with user removed
+               val updatedTeam = team.copy(
+                   vicePresidentId = if (team.vicePresidentId == user.id) null else team.vicePresidentId,
+                   captainIds = team.captainIds.filterNot { it == user.id },
+                   playerIds = team.playerIds.filterNot { it == user.id }
+               )
 
-                // Update the team document first
-                println("DEBUG: Updating team document")
-                val updatedTeam = team.copy(
-                    vicePresidentId = if (team.vicePresidentId == user.id) null else team.vicePresidentId,
-                    captainIds = team.captainIds.filterNot { it == user.id },
-                    playerIds = team.playerIds.filterNot { it == user.id }
-                )
+               // Optimistic update - immediately update team state
+               _currentTeam.value = updatedTeam
 
-                val teamSuccess = database.updateDocument("teams", team.id, updatedTeam)
-                println("DEBUG: Team update result: $teamSuccess")
+               // IMPORTANT: Also update the team members state immediately to remove the user
+               // This will force UI to update without waiting for database refresh
+               _teamMembers.value.let { currentState ->
+                   if (currentState is TeamMembersState.Success) {
+                       _teamMembers.value = currentState.copy(
+                           vicePresident = if (user.id == currentState.vicePresident?.id) null else currentState.vicePresident,
+                           captains = currentState.captains.filterNot { it.id == user.id },
+                           players = currentState.players.filterNot { it.id == user.id }
+                       )
+                   }
+               }
 
-                if (!teamSuccess) {
-                    _errorMessage.value = "Failed to update team"
-                    return@launch
-                }
+               // Update the team document in database
+               println("DEBUG: Updating team document")
+               val teamSuccess = database.updateDocument("teams", team.id, updatedTeam)
+               println("DEBUG: Team update result: $teamSuccess")
 
-                // Then update the user's membership
-                println("DEBUG: Updating user's team membership")
-                val userSuccess = database.updateUserData(
-                    user.id,
-                    mapOf("teamMembership" to null)
-                )
+               if (!teamSuccess) {
+                   _errorMessage.value = "Failed to update team"
+                   // Revert optimistic updates if database update fails
+                   _currentTeam.value = team
+                   loadTeamMembers(team)
+                   return@launch
+               }
 
-                println("DEBUG: User update result: $userSuccess")
+               // Update the user's membership
+               println("DEBUG: Updating user's team membership")
+               val userSuccess = database.updateUserData(
+                   user.id,
+                   mapOf("teamMembership" to null)
+               )
 
-                if (userSuccess) {
-                    _successMessage.value = "User ${user.name} has been removed from the team"
-                } else {
-                    // Even when user update fails, we still need to update the UI
-                    _successMessage.value = "User was removed from team roster"
-                    // Log the error but continue
-                    println("DEBUG: Failed to update user membership, but team was updated")
-                }
+               println("DEBUG: User update result: $userSuccess")
 
-                // ALWAYS update UI regardless of user document update success
-                // Get fresh team data directly from database
-                val freshTeam = database.getDocument<Team>("teams/${team.id}")
-                if (freshTeam != null) {
-                    // Update the local state with fresh data from database
-                    _currentTeam.value = freshTeam
-                    loadTeamMembers(freshTeam)
-                } else {
-                    // Fallback to our local updated copy
-                    _currentTeam.value = updatedTeam
-                    loadTeamMembers(updatedTeam)
-                }
+               if (userSuccess) {
+                   _successMessage.value = "User ${user.name} has been removed from the team"
+               } else {
+                   _successMessage.value = "User was removed from team roster"
+                   println("DEBUG: Failed to update user membership, but team was updated")
+               }
 
-                // Force UI refresh
-                _refreshTrigger.value += 1
+               // Force UI refresh
+               _refreshTrigger.value += 1
 
-            } catch (e: Exception) {
-                println("DEBUG: Exception in kickUser: ${e.message}")
-                e.printStackTrace()
-                _errorMessage.value = "Error kicking user: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+           } catch (e: Exception) {
+               println("DEBUG: Exception in kickUser: ${e.message}")
+               e.printStackTrace()
+               _errorMessage.value = "Error kicking user: ${e.message}"
+           } finally {
+               _isLoading.value = false
+           }
+       }
+   }
 
     fun changeUserRole(user: User, newRole: TeamRole) {
         viewModelScope.launch {
@@ -855,6 +856,9 @@ class TeamViewModel(
                 val request = database.getDocument<TeamJoinRequest>("teamJoinRequests/$requestId")
                     ?: throw Exception("Request not found")
 
+                println("DEBUG: Handling join request $requestId, approve=$approve")
+                println("DEBUG: Request user=${request.userId}, team=${request.teamId}")
+
                 // Check user's team role
                 val currentTeam = _currentTeam.value ?: throw Exception("Team not found")
                 val isPresident = currentTeam.presidentId == currentUserId
@@ -864,70 +868,105 @@ class TeamViewModel(
                     throw Exception("Only team leaders can approve requests")
                 }
 
+                // Create updated request object
                 val updatedRequest = request.copy(
                     status = if (approve) RequestStatus.APPROVED else RequestStatus.REJECTED,
                     responseTimestamp = Clock.System.now().toString(),
                     responseBy = currentUserId
                 )
 
-                val success = database.updateDocument("teamJoinRequests", requestId, updatedRequest)
-
-                if (success && approve) {
-                    // Add user to team
+                // If approving, create a local updated team object for optimistic update
+                if (approve) {
                     val updatedPlayerIds = currentTeam.playerIds + request.userId
                     val updatedTeam = currentTeam.copy(playerIds = updatedPlayerIds)
 
-                    val teamUpdateSuccess = database.updateDocument("teams", currentTeam.id, updatedTeam)
+                    // Optimistic update - update local state immediately
+                    _currentTeam.value = updatedTeam
 
-                    if (teamUpdateSuccess) {
-                        // Update the user's team membership
-                        val teamMembership = TeamMembership(
-                            teamId = currentTeam.id,
-                            role = TeamRole.PLAYER
-                        )
+                    // Force UI refresh BEFORE database operations
+                    _refreshTrigger.value += 1
+                }
 
-                        val userUpdateSuccess = database.updateUserData(
-                            request.userId,
-                            mapOf("teamMembership" to teamMembership)
-                        )
+                // Update the request status in database
+                println("DEBUG: Updating request status in database")
+                val requestUpdateSuccess = database.updateDocument("teamJoinRequests", requestId, updatedRequest)
 
-                        if (teamUpdateSuccess && userUpdateSuccess) {
-                            // Delete all other pending requests from this user since they joined a team
-                            deleteAllUserPendingRequests(request.userId)
+                if (!requestUpdateSuccess) {
+                    // Revert optimistic update if request update fails
+                    _errorMessage.value = "Failed to update request status"
+                    if (approve) _currentTeam.value = currentTeam
+                    return@launch
+                }
 
-                            _successMessage.value = if (approve) "Request approved" else "Request rejected"
-
-                            // Get fresh team data from database to ensure we have the latest
-                            val freshTeam = database.getDocument<Team>("teams/${currentTeam.id}")
-                            if (freshTeam != null) {
-                                _currentTeam.value = freshTeam
-                                // Force reload with fresh data
-                                loadTeamMembers(freshTeam)
-                                loadTeamJoinRequests()
-                                // Force UI refresh by incrementing trigger
-                                _refreshTrigger.value += 1
-                            } else {
-                                // Fallback to using our local updated copy
-                                _currentTeam.value = updatedTeam
-                                loadTeamMembers(updatedTeam)
-                                loadTeamJoinRequests()
-                                _refreshTrigger.value += 1
-                            }
-                        } else {
-                            _errorMessage.value = "Failed to update user data"
-                        }
-                    } else {
-                        _errorMessage.value = "Failed to update team"
-                    }
-                } else if (success) {
+                // If rejecting, we're done after updating the request
+                if (!approve) {
                     _successMessage.value = "Request rejected"
-                    // Even for rejections, refresh the data to update UI
+                    // Refresh join requests list
                     loadTeamJoinRequests()
                     _refreshTrigger.value += 1
-                } else {
-                    _errorMessage.value = "Failed to update request"
+                    return@launch
                 }
+
+                // If we're here, we're approving the request
+
+                // Add user to team in database
+                val updatedPlayerIds = currentTeam.playerIds + request.userId
+                val updatedTeam = currentTeam.copy(playerIds = updatedPlayerIds)
+
+                println("DEBUG: Updating team document")
+                val teamUpdateSuccess = database.updateDocument("teams", currentTeam.id, updatedTeam)
+
+                if (!teamUpdateSuccess) {
+                    _errorMessage.value = "Failed to update team"
+                    // Revert optimistic update if team update fails
+                    _currentTeam.value = currentTeam
+                    return@launch
+                }
+
+                // Update the user's team membership
+                val teamMembership = TeamMembership(
+                    teamId = currentTeam.id,
+                    role = TeamRole.PLAYER
+                )
+
+                println("DEBUG: Updating user's team membership")
+                val userUpdateSuccess = database.updateUserData(
+                    request.userId,
+                    mapOf("teamMembership" to teamMembership)
+                )
+
+                if (!userUpdateSuccess) {
+                    _errorMessage.value = "Failed to update user data"
+                    // We don't revert here as the team was already updated
+                } else {
+                    // Delete all other pending requests from this user since they joined a team
+                    println("DEBUG: Deleting other pending requests")
+                    deleteAllUserPendingRequests(request.userId)
+                    _successMessage.value = "Request approved"
+                }
+
+                // Get fresh team data from database to ensure we have the latest
+                println("DEBUG: Getting fresh team data")
+                val freshTeam = database.getDocument<Team>("teams/${currentTeam.id}")
+                if (freshTeam != null) {
+                    _currentTeam.value = freshTeam
+                    // Force reload with fresh data
+                    loadTeamMembers(freshTeam)
+                } else {
+                    // Fallback to using our local updated copy
+                    _currentTeam.value = updatedTeam
+                    loadTeamMembers(updatedTeam)
+                }
+
+                // Always refresh join requests and reload UI
+                loadTeamJoinRequests()
+
+                // Final UI refresh trigger after all operations complete
+                _refreshTrigger.value += 1
+
             } catch (e: Exception) {
+                println("DEBUG: Error in handleJoinRequest: ${e.message}")
+                e.printStackTrace()
                 _errorMessage.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false

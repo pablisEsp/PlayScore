@@ -156,13 +156,11 @@ class TournamentViewModel(
         }
     }
 
-    // Complete the checkTournamentCompletion function in TournamentViewModel
     fun checkTournamentCompletion(tournamentId: String) {
         viewModelScope.launch {
             try {
                 // Get all matches for this tournament
                 val matches = _tournamentMatches.value.ifEmpty {
-                    // Load matches if not already loaded
                     database.getCollectionFiltered<TournamentMatch>(
                         "tournamentMatches",
                         "tournamentId",
@@ -171,35 +169,62 @@ class TournamentViewModel(
                     )
                 }
 
-                // Get the tournament
-                val tournament = _currentTournament.value ?:
-                    database.getDocument<Tournament>("tournaments/$tournamentId")
+                if (matches.isEmpty()) {
+                    _errorMessage.value = "No matches found for tournament"
+                    return@launch
+                }
 
-                // Find the final match (highest round, usually only one match)
+                // Get the tournament
+                val tournament = _currentTournament.value
+                    ?: database.getDocument<Tournament>("tournaments/$tournamentId")
+                    ?: run {
+                        _errorMessage.value = "Tournament not found"
+                        return@launch
+                    }
+
+                // Find the final match based on tournament type
                 val maxRound = matches.maxOfOrNull { it.round } ?: return@launch
                 val finalMatches = matches.filter { it.round == maxRound }
 
+                if (finalMatches.isEmpty()) {
+                    return@launch
+                }
+
                 // For single elimination, there should be exactly one final match
-                val finalMatch = finalMatches.firstOrNull() ?: return@launch
+                val finalMatch = if (tournament.bracketType == BracketType.SINGLE_ELIMINATION) {
+                    finalMatches.firstOrNull() ?: return@launch
+                } else {
+                    // For other tournament types, all final matches must be complete
+                    if (finalMatches.any { it.status != MatchStatus.COMPLETED }) {
+                        return@launch  // Not all final matches are complete
+                    }
+                    // Use the match with a winner for tournament winner
+                    finalMatches.firstOrNull { it.winnerId.isNotEmpty() } ?: return@launch
+                }
 
                 // If the final match is completed and has a winner
                 if (finalMatch.status == MatchStatus.COMPLETED && finalMatch.winnerId.isNotEmpty()) {
                     // Update tournament as completed with winner
                     val currentDate = Clock.System.now().toString().substringBefore(".")
 
-                    database.updateFields(
+                    val updateSuccess = database.updateFields(
                         "tournaments",
                         tournamentId,
                         mapOf(
-                            "status" to TournamentStatus.COMPLETED.toString(),
+                            "status" to TournamentStatus.COMPLETED,  // Send enum directly
                             "winnerId" to finalMatch.winnerId,
                             "completedDate" to currentDate
                         )
                     )
 
+                    if (!updateSuccess) {
+                        _errorMessage.value = "Failed to update tournament status"
+                        return@launch
+                    }
+
                     // Update local tournament data
-                    _currentTournament.update { tournament ->
-                        tournament?.copy(
+                    _currentTournament.update { currentTournament ->
+                        currentTournament?.copy(
                             status = TournamentStatus.COMPLETED,
                             winnerId = finalMatch.winnerId,
                             completedDate = currentDate
@@ -351,7 +376,7 @@ class TournamentViewModel(
                     "tournamentApplications",
                     "teamId",
                     teamId,
-                    serializer = kotlinx.serialization.builtins.ListSerializer(TeamApplication.serializer())
+                    serializer = ListSerializer(TeamApplication.serializer())
                 )
 
                 // Extract the tournament IDs that this team has already applied to
@@ -360,7 +385,7 @@ class TournamentViewModel(
                 // Get all tournaments
                 val allTournaments = database.getCollection<Tournament>(
                     "tournaments",
-                    serializer = kotlinx.serialization.builtins.ListSerializer(Tournament.serializer())
+                    serializer = ListSerializer(Tournament.serializer())
                 )
                 allTournamentsCache = allTournaments // Update the cache
 
@@ -524,7 +549,7 @@ class TournamentViewModel(
             try {
                 val allTournaments = database.getCollection<Tournament>(
                     "tournaments",
-                    serializer = kotlinx.serialization.builtins.ListSerializer(Tournament.serializer())
+                    serializer = ListSerializer(Tournament.serializer())
                 )
                 allTournamentsCache = allTournaments // Update the cache
 
@@ -549,7 +574,7 @@ class TournamentViewModel(
                     "tournamentApplications",
                     "teamId",
                     teamId,
-                    serializer = kotlinx.serialization.builtins.ListSerializer(TeamApplication.serializer())
+                    serializer = ListSerializer(TeamApplication.serializer())
                 ).filter { it.tournamentId == tournamentId }
 
                 _teamApplication.value = applications.firstOrNull()
@@ -568,7 +593,7 @@ class TournamentViewModel(
                     "tournamentApplications",
                     "teamId",
                     teamId,
-                    serializer = kotlinx.serialization.builtins.ListSerializer(TeamApplication.serializer())
+                    serializer = ListSerializer(TeamApplication.serializer())
                 )
                 _teamApplications.value = applications
             } catch (e: Exception) {
@@ -711,7 +736,7 @@ class TournamentViewModel(
         return start1 <= end2 && start2 <= end1
     }
 
-    // Add this function to the TournamentViewModel to get double elimination matches properly grouped
+    // Function to the TournamentViewModel to get double elimination matches properly grouped
     fun getDoubleEliminationMatchGroups(matches: List<TournamentMatch>): Map<String, List<TournamentMatch>> {
         // Group matches by bracket section using their IDs
         val winnersMatches = matches.filter { it.id.contains("-W-") }
@@ -751,7 +776,7 @@ class TournamentViewModel(
                     "tournamentMatches",
                     "tournamentId",
                     tournamentId,
-                    serializer = kotlinx.serialization.builtins.ListSerializer(TournamentMatch.serializer())
+                    serializer = ListSerializer(TournamentMatch.serializer())
                 )
 
                 // Log the number of matches found for debugging
